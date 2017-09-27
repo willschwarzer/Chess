@@ -686,7 +686,7 @@ class Board(object):
     def highlightSquare(self, square):
         '''Given a board and a coordinate, blit's a highlight token on that square'''
         global boardScale
-        highlightImage = pygame.image.load("highlight.png")
+        highlightImage = pygame.image.load("images/highlight.png")
         highlightImage = pygame.transform.scale(highlightImage, (int(100*boardScale), int(100*boardScale)))
         row = square[0]
         col = square[1]        
@@ -700,18 +700,18 @@ class Board(object):
         
     def setBoard(self):
         '''Given an empty board, initializes a set of pieces for a standard game of chess'''
-        whitePawnImage = pygame.image.load("whitepawn.png")
-        blackPawnImage = pygame.image.load("blackpawn.png")
-        whiteKnightImage = pygame.image.load("whiteknight.png")
-        blackKnightImage = pygame.image.load("blackknight.png")
-        whiteBishopImage = pygame.image.load("whitebishop.png")
-        blackBishopImage = pygame.image.load("blackbishop.png")
-        whiteRookImage = pygame.image.load("whiterook.png")
-        blackRookImage = pygame.image.load("blackrook.png")
-        whiteQueenImage = pygame.image.load("whitequeen.png")
-        blackQueenImage = pygame.image.load("blackqueen.png")
-        whiteKingImage = pygame.image.load("whiteking.png")
-        blackKingImage = pygame.image.load("blackking.png")
+        whitePawnImage = pygame.image.load("images/whitepawn.png")
+        blackPawnImage = pygame.image.load("images/blackpawn.png")
+        whiteKnightImage = pygame.image.load("images/whiteknight.png")
+        blackKnightImage = pygame.image.load("images/blackknight.png")
+        whiteBishopImage = pygame.image.load("images/whitebishop.png")
+        blackBishopImage = pygame.image.load("images/blackbishop.png")
+        whiteRookImage = pygame.image.load("images/whiterook.png")
+        blackRookImage = pygame.image.load("images/blackrook.png")
+        whiteQueenImage = pygame.image.load("images/whitequeen.png")
+        blackQueenImage = pygame.image.load("images/blackqueen.png")
+        whiteKingImage = pygame.image.load("images/whiteking.png")
+        blackKingImage = pygame.image.load("images/blackking.png")
         
         self.pieceList = []
         for col in range(8):
@@ -818,18 +818,18 @@ class Board(object):
             self.pieceList.pop(self.pieceList.index(self.boardList[newPosition[0]][7]))
             piece.setPosition(newPosition)
             if piece.getSide() == "black":
-                image = pygame.image.load("blackrook.png")
+                image = pygame.image.load("images/blackrook.png")
             else:
-                image = pygame.image.load("whiterook.png")
+                image = pygame.image.load("images/whiterook.png")
             self.pieceList.append(Rook(piece.getSide(), oldPosition[0], 5, self, image, self.surface))
             
         elif piece.__str__() == "king" and piece.hasMoved == False and newPosition[1] == 2:
             self.pieceList.pop(self.pieceList.index(self.boardList[newPosition[0]][0]))
             piece.setPosition(newPosition)
             if piece.getSide() == "black":
-                image = pygame.image.load("blackrook.png")
+                image = pygame.image.load("images/blackrook.png")
             else:
-                image = pygame.image.load("whiterook.png")
+                image = pygame.image.load("images/whiterook.png")
             self.pieceList.append(Rook(piece.getSide(), oldPosition[0], 3, self, image, self.surface))
         #en passant & promotion
            
@@ -857,7 +857,7 @@ class Board(object):
                 self.promote(piece, 'black', isAI)
             elif abs(oldPosition[0] - newPosition[0]) == 2:
                 #create an enPassant in the "middle" space
-                image = pygame.image.load("deadpiece.png")
+                image = pygame.image.load("images/deadpiece.png")
                 side = piece.getSide()
                 if newPosition[0] < oldPosition[0]:
                     enPassantSquare = [newPosition[0]+1, newPosition[1]]
@@ -888,14 +888,14 @@ class Board(object):
             
     def promote(self, piece, side, isAI):
         '''Given a board, piece, side, and boolean, allows the user to change a piece into another'''
-        whiteKnightImage = pygame.image.load("whiteknight.png")
-        blackKnightImage = pygame.image.load("blackknight.png")
-        whiteBishopImage = pygame.image.load("whitebishop.png")
-        blackBishopImage = pygame.image.load("blackbishop.png")
-        whiteRookImage = pygame.image.load("whiterook.png")
-        blackRookImage = pygame.image.load("blackrook.png")
-        whiteQueenImage = pygame.image.load("whitequeen.png")
-        blackQueenImage = pygame.image.load("blackqueen.png")
+        whiteKnightImage = pygame.image.load("images/whiteknight.png")
+        blackKnightImage = pygame.image.load("images/blackknight.png")
+        whiteBishopImage = pygame.image.load("images/whitebishop.png")
+        blackBishopImage = pygame.image.load("images/blackbishop.png")
+        whiteRookImage = pygame.image.load("images/whiterook.png")
+        blackRookImage = pygame.image.load("images/blackrook.png")
+        whiteQueenImage = pygame.image.load("images/whitequeen.png")
+        blackQueenImage = pygame.image.load("images/blackqueen.png")
         
         invalidInput = True
         
@@ -1056,7 +1056,7 @@ class AI(object):
 def twoPlayer():
     '''Method for allowing two humans to play against each other'''
     global boardScale
-    boardImage = pygame.image.load("chessboard.jpg")
+    boardImage = pygame.image.load("images/chessboard.jpg")
     pygame.init()
     
     validScale = False
@@ -1151,7 +1151,7 @@ def twoPlayer():
 def vsAI():
     '''Launches a game against an AI'''
     global boardScale
-    boardImage = pygame.image.load("chessboard.jpg")
+    boardImage = pygame.image.load("images/chessboard.jpg")
     pygame.init()
     
     validScale = False
