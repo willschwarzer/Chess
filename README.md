@@ -1,5 +1,5 @@
 # ChessSnake
-This repo is for storing the code for Will Schwarzer and Tony Bouza's Python chess project.
+This repo is for storing the code for Will Schwarzer and Tony Bouza's Intro CS Python chess project.
 
 Credit: 
 
