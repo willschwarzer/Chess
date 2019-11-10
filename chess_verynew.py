@@ -18,6 +18,7 @@ PIECE_IMGS = [
     pygame.image.load("images/blackking.png")
 ]
 BOARD_IMG = pygame.image.load("images/chessboard.jpg")
+HIGHLIGHT_IMG = pygame.image.load("images/highlight.png")
 
 board_scale = 1
 
@@ -120,19 +121,142 @@ def set_board():
 
     return board
 
+def piece_at_square(board, row, col):
+    if (not 0 <= row <= 7) or (not 0 <= col <= 7):
+        return None
+    square = row*8 + col
+    return (board // (len(Piece)**square)) % len(Piece)
+
+def square_is_empty(board, row, col):
+    return (not piece_at_square(board, row, col))
+
+def get_side(piece):
+    if piece is None or piece == 0:
+        return None
+    if piece % 2 == 0:
+        return -1
+    else:
+        return 1
+
+def get_type(piece):
+    if not piece:
+        return None
+    if piece in (1, 2):
+        return 'pawn'
+    if piece in (3, 4):
+        return 'knight'
+    if piece in (5, 6):
+        return 'bishop'
+    if piece in (7, 8):
+        return 'rook'
+    if piece in (9, 10):
+        return 'queen'
+    return 'king'
+
+def make_move(board, start, finish):
+    return board
+
+def test_check(board):
+    return 0
+
+def is_legal(board, start, finish, threatened=False):
+    ''' Returns a piece-independent evaluation of whether or not a given
+    move is legal. Easily extended to different rulesets, such as antichess.
+    If threatened is true, then checks whether or not the given piece
+    threatens the square (e.g., this will be true if it has a friend there.)'''
+    if (not 0 <= finish[0] <= 7) or (not 0 <= finish[1] <= 7):
+        return False
+    side = get_side(piece_at_square(board, *start))
+    # If it results in a check for the player making the move, nope on out
+    if test_check(make_move(board, start, finish)) == side:
+        return False
+    return True
+
+def get_moves(board, row, col):
+    piece = piece_at_square(board, row, col)
+    if not piece:
+        raise RuntimeException('Got moves for empty square?')
+    if piece in (1, 2):
+        return get_moves_pawn(board, row, col)
+    if piece in (3, 4):
+        return get_moves_knight(board, row, col)
+    if piece in (5, 6):
+        return get_moves_bishop(board, row, col)
+    if piece in (7, 8):
+        return get_moves_rook(board, row, col)
+    if piece in (9, 10):
+        return get_moves_queen(board, row, col)
+    return get_moves_king(board, row, col)
+
+def get_moves_pawn(board, row, col):
+    side = get_side(piece_at_square(board, row, col))
+    moves = []
+    if side == 1:
+        # going up
+        if row == 6:
+            if square_is_empty(board, row-1, col) and square_is_empty(board, row-2, col):
+                moves.append((row-2, col))
+        if square_is_empty(board, row-1, col):
+            moves.append((row-1, col))
+        if get_side(piece_at_square(board, row-1, col-1)) == -1:
+            moves.append((row-1, col-1))
+        if get_side(piece_at_square(board, row-1, col+1)) == -1:
+            moves.append((row-1, col+1))
+        # TODO might be a little slower than doing the logic in the if statement
+    else:
+        # going down
+        if row == 1:
+            if square_is_empty(board, row+1, col) and square_is_empty(board, row+2, col):
+                moves.append((row+2, col))
+        if square_is_empty(board, row+1, col):
+            moves.append((row+1, col))
+        if get_side(piece_at_square(board, row+1, col-1)) == 1:
+            moves.append((row+1, col-1))
+        if get_side(piece_at_square(board, row+1, col+1)) == 1:
+            moves.append((row+1, col+1))
+
+    return [move for move in moves if is_legal(board, (row, col), move)]
+
+def get_moves_knight(board, row, col):
+    side = get_side(piece_at_square(board, row, col))
+    moves = [(row+2, col-1),(row+2, col+1),(row+1,col-2), (row+1,col+2),(row-1,col-2),(row-1,col+2),(row-2,col-1),(row-2, col+1)]
+    return [move for move in moves if is_legal(board, (row, col), move)]
+
+def get_moves_bishop(board, row, col):
+    side = get_side(piece_at_square(board, row, col))
+    moves = []
+    i = 0
+    return [move for move in moves if is_legal(board, (row, col), move)]
+
+def get_moves_rook(board, row, col):
+    side = get_side(piece_at_square(board, row, col))
+    moves = []
+    i = 0
+    return [move for move in moves if is_legal(board, (row, col), move)]
+
+def get_moves_queen(board, row, col):
+    side = get_side(piece_at_square(board, row, col))
+    moves = []
+    i = 0
+    return [move for move in moves if is_legal(board, (row, col), move)]
+
+def get_moves_king(board, row, col):
+    side = get_side(piece_at_square(board, row, col))
+    moves = []
+    i = 0
+    return [move for move in moves if is_legal(board, (row, col), move)]
+
 def draw_board(board, surface):
     ''' Draws all pieces on a given board'''
     # Draw board
     board_img = pygame.transform.scale(BOARD_IMG,(int(800*board_scale),int(800*board_scale)))
     rect = pygame.Rect(0, 0, surface.get_width(), surface.get_width())
-    breakpoint()
     surface.blit(board_img, rect)
 
     # Draw pieces
     for row in range(8):
         for col in range(8):
-            square = row*8 + col
-            piece = (board // (len(Piece)**square)) % len(Piece)
+            piece = piece_at_square(board, row, col)
             if not piece:
                 continue
             piece_img = PIECE_IMGS[piece]
@@ -141,6 +265,12 @@ def draw_board(board, surface):
             width = height = int(50*board_scale)
             rect = pygame.Rect(col*100*board_scale + (50 - width/2)*board_scale, row*100*board_scale  + (50 - height/2)*board_scale, col*100*board_scale + (50 + width/2)*board_scale, row*100*board_scale + (50 + height/2)*board_scale)
             surface.blit(piece_img, rect)
+
+def highlight_square(surface, row, col):
+    global board_scale
+    highlight_image = pygame.transform.scale(HIGHLIGHT_IMG, (int(100*board_scale), int(100*board_scale)))
+    rect = pygame.Rect((col*100*board_scale,row*100*board_scale),(100*board_scale,100*board_scale))
+    surface.blit(highlight_image, rect)
 
 def two_player():
     '''Method for allowing two humans to play against each other'''
@@ -175,7 +305,7 @@ def two_player():
     draw_board(board, surface)
     pygame.display.flip()
         
-    player_side = 'white'
+    player_side = 1
     first_click = True
     checkmate_value = 0
         
@@ -188,23 +318,20 @@ def two_player():
                 click_position[0] = event.pos[0]
                 click_position[1] = event.pos[1]
                 click_square = [click_position[1]//int(100*board_scale), click_position[0]//int(100*board_scale)]
-                piece = board.board_list[click_square[0]][click_square[1]]
+                piece = piece_at_square(board, *click_square)
                 if first_click:
-                    if piece != None and piece.get_side() == player_side:
-                        moves = board.get_piece_moves(click_square)
+                    if piece != None and get_side(piece) == player_side:
+                        moves = get_moves(board, *click_square)
                         #highlight available moves
-                        highlighted_squares = []
                         for move in moves:
-                            board.highlight_square(move)
-                            highlighted_squares.append(move)
+                            highlight_square(surface, *move)
                             pygame.display.flip()
                         first_click_square = click_square
                         first_click = False
                         continue #restart the event code, this time getting the move-determining (or selection-cancelling) click
                         
                 if not first_click:
-                    for square in highlighted_squares:
-                            board.un_highlight_square(square)
+                    draw_board(board, surface)
                     pygame.display.flip()
                     valid_move = False
                     for move in moves:
@@ -214,7 +341,7 @@ def two_player():
                         board.make_move(first_click_square, click_square)
                         board.update_board_list()
                         surface.fill([0, 0, 0])
-                        board.draw_everything()
+                        board.draw_board()
                         pygame.display.flip()
 
                         checkmate_value = board.get_checkmate()
