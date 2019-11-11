@@ -122,7 +122,7 @@ def set_board():
     return board
 
 def piece_at_square(board, row, col):
-    if (not 0 <= row <= 7) or (not 0 <= col <= 7):
+    if not in_bounds(row, col):
         return None
     square = row*8 + col
     return (board // (len(Piece)**square)) % len(Piece)
@@ -154,44 +154,78 @@ def get_type(piece):
     return 'king'
 
 def make_move(board, start, finish):
-    return board
+    start_square = start[0]*8 + start[1]
+    finish_square = finish[0]*8 + finish[1]
+    piece = piece_at_square(board, *start)
+    diff = piece*(len(Piece)**finish_square) - \
+            piece*(len(Piece)**start_square) - \
+            piece_at_square(board, *finish)*(len(Piece)**finish_square)
+    return board + diff
 
-def test_check(board):
-    return 0
+def find_king(board, side):
+    if side == 1:
+        king = Piece.white_king.value
+    else:
+        king = Piece.black_king.value
+    for row in range(8):
+        for col in range(8):
+            if king == piece_at_square(board, row, col):
+                return (row, col)
+    raise RuntimeException('Unless this is a variant, each side should have a king!')
+
+def test_check(board, side):
+    king_square = find_king(board, side)
+    for row in range(8):
+        for col in range(8):
+            piece = piece_at_square(board, row, col)
+            if piece != 0 and get_side(piece) != side:
+                if king_square in get_moves(board, row, col, True):
+                    return True
+    return False
+
+def in_bounds(row, col):
+    return (0 <= row <= 7) and (0 <= col <= 7)
 
 def is_legal(board, start, finish, threatened=False):
     ''' Returns a piece-independent evaluation of whether or not a given
     move is legal. Easily extended to different rulesets, such as antichess.
     If threatened is true, then checks whether or not the given piece
     threatens the square (e.g., this will be true if it has a friend there.)'''
-    if (not 0 <= finish[0] <= 7) or (not 0 <= finish[1] <= 7):
+    if not in_bounds(*finish):
         return False
+    # If we're just checking threat, we don't care about being in check
+    if threatened:
+        return True
     side = get_side(piece_at_square(board, *start))
+    if get_side(piece_at_square(board, *finish)) == side:
+        return False
     # If it results in a check for the player making the move, nope on out
-    if test_check(make_move(board, start, finish)) == side:
+    if test_check(make_move(board, start, finish), side):
         return False
     return True
 
-def get_moves(board, row, col):
+def get_moves(board, row, col, threatened=False):
     piece = piece_at_square(board, row, col)
     if not piece:
         raise RuntimeException('Got moves for empty square?')
     if piece in (1, 2):
-        return get_moves_pawn(board, row, col)
+        return get_moves_pawn(board, row, col, threatened)
     if piece in (3, 4):
-        return get_moves_knight(board, row, col)
+        return get_moves_knight(board, row, col, threatened)
     if piece in (5, 6):
-        return get_moves_bishop(board, row, col)
+        return get_moves_bishop(board, row, col, threatened)
     if piece in (7, 8):
-        return get_moves_rook(board, row, col)
+        return get_moves_rook(board, row, col, threatened)
     if piece in (9, 10):
-        return get_moves_queen(board, row, col)
-    return get_moves_king(board, row, col)
+        return get_moves_queen(board, row, col, threatened)
+    return get_moves_king(board, row, col, threatened)
 
-def get_moves_pawn(board, row, col):
+def get_moves_pawn(board, row, col, threatened=False):
     side = get_side(piece_at_square(board, row, col))
     moves = []
     if side == 1:
+        if threatened:
+            return [move for move in [(row-1, col-1), (row-1, col+1)] if is_legal(board, (row, col), move, True)]
         # going up
         if row == 6:
             if square_is_empty(board, row-1, col) and square_is_empty(board, row-2, col):
@@ -204,6 +238,8 @@ def get_moves_pawn(board, row, col):
             moves.append((row-1, col+1))
         # TODO might be a little slower than doing the logic in the if statement
     else:
+        if threatened:
+            return [move for move in [(row+1, col-1), (row+1, col+1)] if is_legal(board, (row, col), move, True)]
         # going down
         if row == 1:
             if square_is_empty(board, row+1, col) and square_is_empty(board, row+2, col):
@@ -217,34 +253,73 @@ def get_moves_pawn(board, row, col):
 
     return [move for move in moves if is_legal(board, (row, col), move)]
 
-def get_moves_knight(board, row, col):
+def get_moves_knight(board, row, col, threatened=False):
     side = get_side(piece_at_square(board, row, col))
     moves = [(row+2, col-1),(row+2, col+1),(row+1,col-2), (row+1,col+2),(row-1,col-2),(row-1,col+2),(row-2,col-1),(row-2, col+1)]
-    return [move for move in moves if is_legal(board, (row, col), move)]
+    return [move for move in moves if is_legal(board, (row, col), move, threatened)]
 
-def get_moves_bishop(board, row, col):
+def get_moves_bishop(board, row, col, threatened=False):
+    side = get_side(piece_at_square(board, row, col))
+    moves = [(row+1, col+1), (row+1, col-1), (row-1, col+1), (row-1, col-1)]
+    i = 1
+    while in_bounds(row+i, col+i) and not piece_at_square(board, row+i, col+i):
+        i += 1
+        moves.append((row+i, col+i))
+    i = 1
+    while in_bounds(row+i, col-i) and not piece_at_square(board, row+i, col-i):
+        i += 1
+        moves.append((row+i, col-i))
+    i = 1
+    while in_bounds(row-i, col+i) and not piece_at_square(board, row-i, col+i):
+        i += 1
+        moves.append((row-i, col+i))
+    i = 1
+    while in_bounds(row-i, col-i) and not piece_at_square(board, row-i, col-i):
+        i += 1
+        moves.append((row-i, col-i))
+    return [move for move in moves if is_legal(board, (row, col), move, threatened)]
+
+def get_moves_rook(board, row, col, threatened=False):
+    side = get_side(piece_at_square(board, row, col))
+    moves = [(row+1, col), (row, col-1), (row, col+1), (row-1, col)]
+    i = 1
+    while in_bounds(row+i, col) and not piece_at_square(board, row+i, col):
+        i += 1
+        moves.append((row+i, col))
+    i = 1
+    while in_bounds(row-i, col) and not piece_at_square(board, row-i, col):
+        i += 1
+        moves.append((row-i, col))
+    i = 1
+    while in_bounds(row, col+i) and not piece_at_square(board, row, col+i):
+        i += 1
+        moves.append((row, col+i))
+    i = 1
+    while in_bounds(row, col-i) and not piece_at_square(board, row, col-i):
+        i += 1
+        moves.append((row, col-i))
+    return [move for move in moves if is_legal(board, (row, col), move, threatened)]
+
+def get_moves_queen(board, row, col, threatened=False):
     side = get_side(piece_at_square(board, row, col))
     moves = []
     i = 0
-    return [move for move in moves if is_legal(board, (row, col), move)]
+    diags = get_moves_bishop(board, row, col, threatened)
+    orthogs = get_moves_rook(board, row, col, threatened)
+    return diags + orthogs
 
-def get_moves_rook(board, row, col):
+def get_moves_king(board, row, col, threatened=False):
     side = get_side(piece_at_square(board, row, col))
-    moves = []
-    i = 0
-    return [move for move in moves if is_legal(board, (row, col), move)]
+    moves = [(row, col+1), (row+1,col), (row+1, col+1), (row-1, col),(row,col-1), (row-1, col-1), (row+1, col-1), (row-1, col+1)]
+    return [move for move in moves if is_legal(board, (row, col), move, threatened)]
 
-def get_moves_queen(board, row, col):
-    side = get_side(piece_at_square(board, row, col))
-    moves = []
-    i = 0
-    return [move for move in moves if is_legal(board, (row, col), move)]
-
-def get_moves_king(board, row, col):
-    side = get_side(piece_at_square(board, row, col))
-    moves = []
-    i = 0
-    return [move for move in moves if is_legal(board, (row, col), move)]
+def has_no_moves(board, side):
+    for row in range(8):
+        for col in range(8):
+            if get_side(piece_at_square(board, row, col)) == side:
+                if get_moves(board, row, col):
+                    return False
+    return True
 
 def draw_board(board, surface):
     ''' Draws all pieces on a given board'''
@@ -317,7 +392,7 @@ def two_player():
             elif event.type == pygame.MOUSEBUTTONDOWN and checkmate_value == 0: #i.e. when the game is over, the only thing the players can do is exit
                 click_position[0] = event.pos[0]
                 click_position[1] = event.pos[1]
-                click_square = [click_position[1]//int(100*board_scale), click_position[0]//int(100*board_scale)]
+                click_square = (click_position[1]//int(100*board_scale), click_position[0]//int(100*board_scale))
                 piece = piece_at_square(board, *click_square)
                 if first_click:
                     if piece != None and get_side(piece) == player_side:
@@ -333,32 +408,22 @@ def two_player():
                 if not first_click:
                     draw_board(board, surface)
                     pygame.display.flip()
-                    valid_move = False
-                    for move in moves:
-                        if move == click_square:
-                            valid_move = True
-                    if valid_move:
-                        board.make_move(first_click_square, click_square)
-                        board.update_board_list()
+                    if click_square in moves:
+                        board = make_move(board, first_click_square, click_square)
                         surface.fill([0, 0, 0])
-                        board.draw_board()
+                        draw_board(board, surface)
                         pygame.display.flip()
 
-                        checkmate_value = board.get_checkmate()
-                        if checkmate_value == 1:
-                            print('White wins!')
-                        elif checkmate_value == 2:
-                            print('Black wins!')
-                        elif checkmate_value == 3:
-                            print('The game is a draw by stalemate.')
-                        check_value = board.get_check()
-                        if check_value != 0 and checkmate_value == 0:
-                            print('Check.')
-                        
-                        if player_side == 'white':
-                            player_side = 'black'
+                        if player_side == 1:
+                            if test_check(board, -1) and has_no_moves(board, -1):
+                                print('White wins!')
                         else:
-                            player_side = 'white'
+                            if test_check(board, 1) and has_no_moves(board, 1):
+                                print('Black wins!')
+                        # elif checkmate_val == 2:
+                        #     print('The game is a draw by stalemate.')
+                        # Switch players
+                        player_side *= -1
                             
                     first_click = True
                     
