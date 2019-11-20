@@ -23,8 +23,6 @@ PIECE_IMGS = [
 BOARD_IMG = pygame.image.load("images/chessboard.jpg")
 HIGHLIGHT_IMG = pygame.image.load("images/highlight.png")
 
-POWERS = [len(piece)**num for num in range(70)]
-
 # See set_board() for an explanation of these digits
 WHITE_CASTLE_DIGIT = 64
 BLACK_CASTLE_DIGIT = 65
@@ -52,6 +50,9 @@ MATERIAL = [
     1000,
     -1000
 ]
+
+NUM_PIECES = len(MATERIAL)
+POWERS = [NUM_PIECES**n for n in range(70)]
 
 class Piece(Enum):
     empty=0
@@ -91,77 +92,78 @@ def set_board(variant='normal'):
         # Pawns
         for col in range(8):
             place = 1*8 + col
-            board += Piece.black_pawn.value*(len(Piece)**place)
+            board += Piece.black_pawn.value*POWERS[place]
             place = 6*8 + col
-            board += Piece.white_pawn.value*(len(Piece)**place)
+            board += Piece.white_pawn.value*POWERS[place]
         # Knights
         for col in (1, 6):
             place = 0*8 + col
-            board += Piece.black_knight.value*(len(Piece)**place)
+            board += Piece.black_knight.value*POWERS[place]
             place = 7*8 + col
-            board += Piece.white_knight.value*(len(Piece)**place)
+            board += Piece.white_knight.value*POWERS[place]
         # Bishops
         for col in (2, 5):
             place = 0*8 + col
-            board += Piece.black_bishop.value*(len(Piece)**place)
+            board += Piece.black_bishop.value*POWERS[place]
             place = 7*8 + col
-            board += Piece.white_bishop.value*(len(Piece)**place)
+            board += Piece.white_bishop.value*POWERS[place]
         # Rooks
         for col in (0, 7):
             place = 0*8 + col
-            board += Piece.black_rook.value*(len(Piece)**place)
+            board += Piece.black_rook.value*POWERS[place]
             place = 7*8 + col
-            board += Piece.white_rook.value*(len(Piece)**place)
+            board += Piece.white_rook.value*POWERS[place]
         # Queens
         place = 0*8 + 3
-        board += Piece.black_queen.value*(len(Piece)**place)
+        board += Piece.black_queen.value*POWERS[place]
         place = 7*8 + 3
-        board += Piece.white_queen.value*(len(Piece)**place)
+        board += Piece.white_queen.value*POWERS[place]
+
         # Kings
         place = 0*8 + 4
-        board += Piece.black_king.value*(len(Piece)**place)
+        board += Piece.black_king.value*POWERS[place]
         place = 7*8 + 4
-        board += Piece.white_king.value*(len(Piece)**place)
+        board += Piece.white_king.value*POWERS[place]
         # Castling: both sides start at 3, i.e. can castle either side
-        board += 3*(len(Piece)**WHITE_CASTLE_DIGIT)
-        board += 3*(len(Piece)**BLACK_CASTLE_DIGIT)
+        board += 3*POWERS[WHITE_CASTLE_DIGIT]
+        board += 3*POWERS[BLACK_CASTLE_DIGIT]
     elif variant == 'test':
         place = 3*8 + 3
-        board += Piece.black_pawn.value*(len(Piece)**place)
+        board += Piece.black_pawn.value*POWERS[place]
         place = 6*8 + 4
-        board += Piece.white_pawn.value*(len(Piece)**place)
+        board += Piece.white_pawn.value*POWERS[place]
         place = 0*8 + 3
-        board += Piece.black_king.value*(len(Piece)**place)
+        board += Piece.black_king.value*POWERS[place]
         place = 7*8 + 4
-        board += Piece.white_king.value*(len(Piece)**place)
+        board += Piece.white_king.value*POWERS[place]
         # No castling
     # En passant initialized to nonexistent, i.e. row, col = 8, 8
     place = 66
-    board += 8*(len(Piece)**EP_ROW_DIGIT)
+    board += 8*POWERS[EP_ROW_DIGIT]
     place = 67
-    board += 8*(len(Piece)**EP_COL_DIGIT)
+    board += 8*POWERS[EP_COL_DIGIT]
     # num_insignificant_moves starts at 0, i.e. is 0 / n and 0 % n
     return board
 
 def reset_insignificant_moves(board):
-    return board % (len(Piece)**INSIG_MOD_N_DIGIT)
+    return board % POWERS[INSIG_MOD_N_DIGIT]
 
 def increment_insignificant_moves(board):
-    return board + (len(Piece)**INSIG_MOD_N_DIGIT)
+    return board + POWERS[INSIG_MOD_N_DIGIT]
 
 def get_insignificant_moves(board):
-    return board // (len(Piece)**INSIG_MOD_N_DIGIT)
+    return board // POWERS[INSIG_MOD_N_DIGIT]
 
 def get_ep_square(board):
-    row = (board // (len(Piece)**EP_ROW_DIGIT)) % len(Piece)
-    col = (board // (len(Piece)**EP_COL_DIGIT)) % len(Piece)
+    row = (board // POWERS[EP_ROW_DIGIT]) % NUM_PIECES
+    col = (board // POWERS[EP_COL_DIGIT]) % NUM_PIECES
     return (row, col)
 
 def set_ep_square(board, row, col):
-    board -= ((board // (len(Piece)**EP_ROW_DIGIT)) %  len(Piece))*len(Piece)**EP_ROW_DIGIT
-    board -= ((board // (len(Piece)**EP_COL_DIGIT)) %  len(Piece))*len(Piece)**EP_COL_DIGIT
-    board += row*len(Piece)**EP_ROW_DIGIT
-    board += col*len(Piece)**EP_COL_DIGIT
+    board -= ((board // POWERS[EP_ROW_DIGIT]) %  NUM_PIECES)*POWERS[EP_ROW_DIGIT]
+    board -= ((board // POWERS[EP_COL_DIGIT]) %  NUM_PIECES)*POWERS[EP_COL_DIGIT]
+    board += row*POWERS[EP_ROW_DIGIT]
+    board += col*POWERS[EP_COL_DIGIT]
     return board
 
 def reset_ep_square(board):
@@ -172,14 +174,14 @@ def get_castling_rights(board, side):
         castle_digit = WHITE_CASTLE_DIGIT
     else:
         castle_digit = BLACK_CASTLE_DIGIT
-    return (board // len(Piece)**castle_digit) % len(Piece)
+    return (board // POWERS[castle_digit]) % NUM_PIECES
 
 def remove_castling_rights(board, side, castle_side):
     if side == 1:
         castle_digit = WHITE_CASTLE_DIGIT
     else:
         castle_digit = BLACK_CASTLE_DIGIT
-    castle_rights = (board // len(Piece)**castle_digit) % len(Piece)
+    castle_rights = (board // POWERS[castle_digit]) % NUM_PIECES
     new_castle_rights = castle_rights
     # Kingside
     if castle_side == 1:
@@ -194,7 +196,7 @@ def remove_castling_rights(board, side, castle_side):
         elif castle_rights == 2:
             new_castle_rights = 0
     diff = new_castle_rights - castle_rights
-    return board + diff*len(Piece)**castle_digit
+    return board + diff*POWERS[castle_digit]
 
 def promote(board, side, col):
     if side == 1:
@@ -206,14 +208,15 @@ def promote(board, side, col):
     # For now, just put a queen there
     # 8  = 9 - 1 = queen - pawn
     # 8 = 10 - 2 = queen - pawn
-    board += 8 * len(Piece)**square
+    board += 8 * POWERS[square]
     return board
 
 def piece_at_square(board, row, col):
     if not in_bounds(row, col):
         return None
     square = row*8 + col
-    return (board // (len(Piece)**square)) % len(Piece)
+    return (board // POWERS[square]) % NUM_PIECES
+    # return (board // POWERS[square]) % NUM_PIECES
 
 def square_is_empty(board, row, col):
     return (not piece_at_square(board, row, col))
@@ -278,41 +281,41 @@ def make_move(board, start, finish):
         board = remove_castling_rights(board, -1, -1)
     start_square = start[0]*8 + start[1]
     finish_square = finish[0]*8 + finish[1]
-    diff = piece*(len(Piece)**finish_square) - \
-            piece*(len(Piece)**start_square) - \
-            piece_at_square(board, *finish)*(len(Piece)**finish_square)
+    diff = piece*POWERS[finish_square] - \
+            piece*POWERS[start_square] - \
+            piece_at_square(board, *finish)*POWERS[finish_square]
     if is_ep:
         # White pawn: get rid of black pawn below it
         if piece == 1:
             removed_square = finish_square+8
-            diff -= 2*len(Piece)**removed_square
+            diff -= 2*POWERS[removed_square]
         # Black pawn: get rid of white pawn above it
         else:
             removed_square = finish_square-8
-            diff -= 1*len(Piece)**removed_square
+            diff -= 1*POWERS[removed_square]
     # Deal with castling by also moving the rook
     elif piece == 11:
         # White castling kingside
         if finish[1] == start[1]+2:
             old_rook_square = finish_square+1
             new_rook_square = finish_square-1
-            diff += 7*(len(Piece)**new_rook_square-len(Piece)**old_rook_square)
+            diff += 7*(POWERS[new_rook_square] - POWERS[old_rook_square])
         # White castling queenside
         elif finish[1] == start[1]-2:
             old_rook_square = finish_square-2
             new_rook_square = finish_square+1
-            diff += 7*(len(Piece)**new_rook_square-len(Piece)**old_rook_square)
+            diff += 7*(POWERS[new_rook_square] - POWERS[old_rook_square])
     elif piece == 12:
         # Black castling kingside
         if finish[1] == start[1]+2:
             old_rook_square = finish_square+1
             new_rook_square = finish_square-1
-            diff += 8*(len(Piece)**new_rook_square-len(Piece)**old_rook_square)
+            diff += 8*(POWERS[new_rook_square] - POWERS[old_rook_square])
         # Black castling queenside
         elif finish[1] == start[1]-2:
             old_rook_square = finish_square-2
             new_rook_square = finish_square+1
-            diff += 8*(len(Piece)**new_rook_square-len(Piece)**old_rook_square)
+            diff += 8*(POWERS[new_rook_square] - POWERS[old_rook_square])
 
     board = board + diff
     # Deal with promotion/en passant
@@ -364,8 +367,8 @@ def is_legal(board, start, finish, check_threat=False):
     if get_side(piece_at_square(board, *finish)) == side:
         return False
     # If it results in a check for the player making the move, nope on out
-    if test_check(make_move(board, start, finish), side):
-        return False
+    # if test_check(make_move(board, start, finish), side):
+    #     return False
     return True
 
 def get_moves(board, row, col, check_threat=False):
@@ -638,55 +641,6 @@ def main(two_player, player_side):
     board_image = pygame.image.load("images/chessboard.jpg")
     pygame.init()
 
-    # XXX unused interactive argument setting   
-    # valid_scale = False
-    # valid_depth = False
-    # valid_side = False
-    # while valid_scale == False:
-    #     BOARD_SCALE = input("Enter the scaling factor for the board (1 corresponds to 800x800):")
-    #     try:
-    #         BOARD_SCALE = float(BOARD_SCALE)
-    #     except:
-    #         print("Please enter a positive number less than or equal to 10 as the scaling factor.")
-    #         continue
-    #     if 0 < BOARD_SCALE and BOARD_SCALE <= 10:
-    #         valid_scale = True
-    #     else:
-    #         print("Please enter a positive number less than or equal to 10 as the scaling factor.")
-    #         continue
-
-    # if not two_player:
-    #     while valid_depth == False:
-    #         depth = input("What depth should the AI search to? 2 is recommended - 3 is more advanced but can take multiple minutes to think.")
-    #         try:
-    #             MAX_DEPTH = int(depth)
-    #         except:
-    #             print("Please choose an integer greater than or equal to 0 for the AI's depth.")
-    #             continue
-    #         if MAX_DEPTH >= 0:
-    #             valid_depth = True
-    #         else:
-    #             print("Please choose an integer greater than or equal to 0 for the AI's depth.")
-    #             continue
-                
-    #     while valid_side == False:
-    #         side_string = input("Which side would you like to play as? Please enter \"white\" or \"black\".")
-    #         if side_string == 'white' or side_string == 'White':
-    #             valid_side = True
-    #             player_side = 1
-    #         elif side_string == 'black' or side_string == 'Black':
-    #             valid_side = True
-    #             player_side = -1
-    #         elif side_string == "\"white\" or \"black\"":
-    #             print("Very funny.")
-    #             continue
-    #         else:
-    #             print("Please enter a valid side (white or black).")
-    #             continue
-    # else:
-    #     player_side = 1
-    
-    pygame.init()
     width = int(800*BOARD_SCALE)
     height = int(800*BOARD_SCALE)
     surface = pygame.display.set_mode([width, height])
@@ -744,6 +698,7 @@ def main(two_player, player_side):
                                     print('White wins!')
                                 else:
                                     print('Stalemate.')
+                                breakpoint()
                                 done = True
                         else:
                             if has_no_moves(board, 1):
@@ -752,8 +707,6 @@ def main(two_player, player_side):
                                 else:
                                     print('Stalemate.')
                                 done = True
-                        # elif checkmate_val == 2:
-                        #     print('The game is a draw by stalemate.')
                         # Switch players
                         if not done:
                             if two_player:
@@ -795,7 +748,23 @@ def parse_args():
                         help='scaling factor for the board')
     parser.add_argument('--player-side', type=str, default='white',
                         help='side to play vs AI (white or black)')
+    parser.add_argument('--self-play', type=str, nargs='+', default=None,
+                        help='which algorithms to self-play')
+    parser.add_argument('--num-self-play-games', type=int, default=10,
+                        help='how many games the algorithms should self-play')
+    # parser.add_argument('')
     args = parser.parse_args()
+
+    if args.self_play != None:
+        if len(args.self_play) == 1:
+            args.self_play = 2*args.self_play
+        if len(args.self_play != 2):
+            raise RuntimeError('Please specify exactly two algs for self-play')
+        for alg in args.self_play:
+            if alg not in ['minimax', 'mcts']:
+                raise RuntimeError('Please specify valid algs for self-play')
+        if args.self_play[0] == 'minimax':
+            raise RuntimeError('You can\'t train minimax with self-play!')
 
     if args.player_side == 'white':
         args.player_side = 1
@@ -805,24 +774,11 @@ def parse_args():
     return args
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        global BOARD_SCALE, MAX_DEPTH, VARIANT
-        args = parse_args()
-        BOARD_SCALE = args.scale
-        MAX_DEPTH = args.depth
-        VARIANT = args.variant
-        main(args.two_player, args.player_side)
-    else:
-        print("Interactive arguments not implemented yet; please set args")
-    # while True:
-    #     num_players = input("How many players are playing?(1 or 2)")
-    #     try:
-    #         num_players = int(num_players)
-    #     except:
-    #         print("Please choose a valid answer - 1 to play against an AI or 2 to play against another human.")
-    #         continue
-    #     if num_players == 1 or num_players == 2:
-    #         main(num_players == 2)
-    #     else:
-    #         print("Please choose a valid answer - 1 to play against an AI or 2 to play against another human.")
-
+    global BOARD_SCALE, MAX_DEPTH, VARIANT
+    args = parse_args()
+    BOARD_SCALE = args.scale
+    MAX_DEPTH = args.depth
+    VARIANT = args.variant
+    # if args.self_play != None:
+    #     self_play(args.self_play[0], args.self_play[1], args.num_self_play_games)
+    main(args.two_player, args.player_side)
