@@ -1,9 +1,10 @@
 import argparse
-import pygame
-from enum import Enum
-import sys
-import time
 import cProfile
+from enum import Enum
+import numpy as np
+import pygame
+import time
+import sys
 
 PIECE_IMGS = [
     None,
@@ -35,7 +36,28 @@ INSIG_DIV_N_DIGIT = 69
 # MAX_DEPTH = 1
 # VARIANT = 'normal'
 
-MATERIAL = [
+one_dim_vals = np.array([[0.1, 0.2, 0.5, 1, 1, 0.5, 0.2, 0.1]])
+SQUARE_VALS = np.transpose(one_dim_vals) @ one_dim_vals
+# SQUARE_VALS = np.array([[0.1]*8]*2 + [[0.1, 0.2, 0.3, 0.7, 0.7, 0.3, 0.2, 0.1]] + [[0.3, 0.4, 0.7, 1, 1, 0.7, 0.4, 0.3]]*2 + [[0.2]*8] + [[0.1]*8]*2)
+
+MOBILITY_SCALAR = np.array([
+    0,
+    1,
+    1,
+    1,
+    1,
+    0.5,
+    0.5,
+    0.3,
+    0.3,
+    0.15,
+    0.15,
+    -0.15,
+    -0.15
+])/10
+
+
+MATERIAL = np.array([
     0,
     1,
     -1,
@@ -49,10 +71,10 @@ MATERIAL = [
     -9,
     1000,
     -1000
-]
+])
 
 NUM_PIECES = len(MATERIAL)
-POWERS = [NUM_PIECES**n for n in range(70)]
+POWERS = np.array([NUM_PIECES**n for n in range(70)])
 
 class Piece(Enum):
     empty=0
@@ -522,7 +544,7 @@ def get_moves_king(board, row, col, check_threat=False):
                 if not test_check(make_move(board, (row, col), (row, col+1)), side):
                     moves.append((row, col+2))
         if castle_rights == 2 or castle_rights == 3:
-            if square_is_empty(board, row, col-1) and square_is_empty(board, row, col-2) and square_is_empty(board, row, col-3):
+            if all([square_is_empty(board, row, col-i) for i in range(1, 4)]):
                 if not test_check(make_move(board, (row, col), (row, col-1)), side):
                     moves.append((row, col-2))
     return [move for move in moves if is_legal(board, (row, col), move, check_threat)]
@@ -535,26 +557,18 @@ def has_no_moves(board, side):
                     return False
     return True
 
-num_evaluations = 0
-eval_time_start = 0
-eval_time_end = 0
-moves_time_start = 0
-moves_time_end = 0
-
 def evaluate(board):
-    '''Returns a value between (approximately) -1000 and 1000 indicating how favorable the board is for each player. Smaller (more negative) scores favor Black, whereas larger scores favor White.'''
-    global num_evaluations, eval_time_start, eval_time_end, moves_time_start, moves_time_end
-    num_evaluations += 1
-    eval_time_start += time.time()
-    C = 0.1
+    '''Returns a value indicating how favorable the board is for each player. Smaller (more negative) scores favor Black, whereas larger scores favor White.'''
+    # C = 0.1
     total = 0
     for row in range(8):
         for col in range(8):
             piece = piece_at_square(board, row, col)
-            moves_time_start += time.time()
-            total += MATERIAL[piece] + C*len(get_moves(board, row, col))
-            moves_time_end += time.time()
-    eval_time_end += time.time()
+            if piece != 0:
+                moves = get_moves(board, row, col, check_threat=True)
+                for move in moves:
+                    total += MOBILITY_SCALAR[piece]*SQUARE_VALS[move]
+                total += MATERIAL[piece]# + C*len(moves)
     return total
 
 def get_all_moves(board, side):
@@ -572,18 +586,6 @@ def order_moves_naive(board, side):
     moves_and_values = [(move, evaluate(make_move(board, move[0], move[1]))) for move in moves]
     moves_and_values.sort(reverse=(side==1), key=lambda x: x[1])
     return [tup[0] for tup in moves_and_values]
-
-def order_moves_alpha_beta(board, side):
-    ### XXX UNUSED FOR NOW
-    '''Given a board and a side, orders the set of all possible moves by calling alpha-beta on each move with maximum depth 1.'''
-    moves = order_moves_naive(board, side)
-    move_and_value_list = []
-    for move in moves:
-        board = make_move(board, move[0], move[1])
-        moveAndValueList.append((move, alpha_beta(board, move, MAX_DEPTH - 1, -1e309, 1e309, -side)))
-            
-    sorted_move_and_value_list = sorted(move_and_value_list, key = lambda x: x[1], reverse = (side == 1)) #if these moves are being sorted for white, he/she wants the highest ranked move first
-    return [move_and_value[0] for move in sorted_move_and_value_list]
 
 def alpha_beta(board, depth, alpha, beta, side):
     '''Given a board and a move, returns an evaluation for that move by recursing over every possible move in each state until the depth limit is reached, then using the evaluate() function and passing the values back up through minimax with alpha-beta pruning.'''
@@ -604,7 +606,7 @@ def alpha_beta(board, depth, alpha, beta, side):
     ordered_moves = order_moves_naive(board, side)
         
     if side == 1:
-        best_move = (None, -1e309)
+        best_move = (None, -100000)
         for move in ordered_moves:
             new_board = make_move(board, move[0], move[1])
             _, move_value = alpha_beta(new_board, depth+1, alpha, beta, -1)
@@ -615,7 +617,7 @@ def alpha_beta(board, depth, alpha, beta, side):
                 return best_move
         return best_move
     else:
-        best_move = (None, 1e309)
+        best_move = (None, 100000)
         for move in ordered_moves:
             new_board = make_move(board, move[0], move[1])
             _, move_value = alpha_beta(new_board, depth+1, alpha, beta, 1)
@@ -627,10 +629,7 @@ def alpha_beta(board, depth, alpha, beta, side):
         return best_move
 
 def make_AI_move(board, side):
-    move = alpha_beta(board, 0, -1e309, 1e309, side)[0]
-    print(num_evaluations)
-    print(eval_time_end - eval_time_start)
-    print(moves_time_end - moves_time_start)
+    move = alpha_beta(board, 0, -100000, 100000, side)[0]
     return make_move(board, move[0], move[1])
 
 def draw_board(board, surface):
