@@ -127,6 +127,39 @@ def set_board(variant='normal'):
         # Castling: both sides start at 3, i.e. can castle either side
         board += 3*POWERS[WHITE_CASTLE_DIGIT]
         board += 3*POWERS[BLACK_CASTLE_DIGIT]
+    elif variant == 'horde':
+        # Pawns
+        for col in range(8):
+            place = 1*8 + col
+            board += Piece.black_pawn.value*POWERS[place]
+        # Knights
+        for col in (1, 6):
+            place = 0*8 + col
+            board += Piece.black_knight.value*POWERS[place]
+        # Bishops
+        for col in (2, 5):
+            place = 0*8 + col
+            board += Piece.black_bishop.value*POWERS[place]
+        # Rooks
+        for col in (0, 7):
+            place = 0*8 + col
+            board += Piece.black_rook.value*POWERS[place]
+        # Queens
+        place = 0*8 + 3
+        board += Piece.black_queen.value*POWERS[place]
+        # Kings
+        place = 0*8 + 4
+        board += Piece.black_king.value*POWERS[place]
+        # White pawns
+        for row in range(4, 8):
+            for col in range(8):
+                place = row*8 + col
+                board += Piece.white_pawn.value*POWERS[place]
+        for col in (1, 2, 5, 6):
+            place = 3*8 + col
+            board += Piece.white_pawn.value*POWERS[place]
+        # Castling: Only black can castle (not that it matters)
+        board += 3*POWERS[BLACK_CASTLE_DIGIT]
     elif variant == 'test':
         place = 3*8 + 3
         board += Piece.black_pawn.value*POWERS[place]
@@ -571,7 +604,7 @@ def alpha_beta(board, depth, alpha, beta, side):
     ordered_moves = order_moves_naive(board, side)
         
     if side == 1:
-        best_move = (None, -1000)
+        best_move = (None, -1e309)
         for move in ordered_moves:
             new_board = make_move(board, move[0], move[1])
             _, move_value = alpha_beta(new_board, depth+1, alpha, beta, -1)
@@ -582,10 +615,8 @@ def alpha_beta(board, depth, alpha, beta, side):
                 return best_move
         return best_move
     else:
-        best_move = (None, 1000)
+        best_move = (None, 1e309)
         for move in ordered_moves:
-            # if depth == 0 and move == ((3, 3), (4, 3)):
-            #     breakpoint()
             new_board = make_move(board, move[0], move[1])
             _, move_value = alpha_beta(new_board, depth+1, alpha, beta, 1)
             if move_value < best_move[1]:
@@ -698,11 +729,10 @@ def main(two_player, player_side):
                                     print('White wins!')
                                 else:
                                     print('Stalemate.')
-                                breakpoint()
                                 done = True
                         else:
                             if has_no_moves(board, 1):
-                                if test_check(board, 1):
+                                if test_check(board, 1) or VARIANT == 'horde':
                                     print('Black wins!')
                                 else:
                                     print('Stalemate.')
@@ -727,7 +757,7 @@ def main(two_player, player_side):
                                     done = True
                             else:
                                 if has_no_moves(board, 1):
-                                    if test_check(board, 1):
+                                    if test_check(board, 1) or VARIANT=='horde':
                                         print('Black wins!')
                                     else:
                                         print('Stalemate.')
