@@ -28,6 +28,20 @@ BOARD_SIZE = 598
 BOARD_MARGIN = 15
 SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8
 
+EMPTY=0
+WHITE_PAWN=1
+BLACK_PAWN=2
+WHITE_KNIGHT=3
+BLACK_KNIGHT=4
+WHITE_BISHOP=5
+BLACK_BISHOP=6
+WHITE_ROOK=7
+BLACK_ROOK=8
+WHITE_QUEEN=9
+BLACK_QUEEN=10
+WHITE_KING=11
+BLACK_KING=12
+
 # See set_board() for an explanation of these digits
 WHITE_CASTLE_DIGIT = 64
 BLACK_CASTLE_DIGIT = 65
@@ -42,21 +56,6 @@ INSIG_DIV_N_DIGIT = 69
 
 NUM_PIECES = len(MATERIAL)
 POWERS = np.array([NUM_PIECES**n for n in range(70)])
-
-class Piece(Enum):
-    empty=0
-    white_pawn=1
-    black_pawn=2
-    white_knight=3
-    black_knight=4
-    white_bishop=5
-    black_bishop=6
-    white_rook=7
-    black_rook=8
-    white_queen=9
-    black_queen=10
-    white_king=11
-    black_king=12
 
 def set_board(variant='normal'):
     ''' Represented digitally: each square is a place, counting horizontally
@@ -81,38 +80,38 @@ def set_board(variant='normal'):
         # Pawns
         for col in range(8):
             place = 1*8 + col
-            board += Piece.black_pawn.value*POWERS[place]
+            board += BLACK_PAWN*POWERS[place]
             place = 6*8 + col
-            board += Piece.white_pawn.value*POWERS[place]
+            board += WHITE_PAWN*POWERS[place]
         # Knights
         for col in (1, 6):
             place = 0*8 + col
-            board += Piece.black_knight.value*POWERS[place]
+            board += BLACK_KNIGHT*POWERS[place]
             place = 7*8 + col
-            board += Piece.white_knight.value*POWERS[place]
+            board += WHITE_KNIGHT*POWERS[place]
         # Bishops
         for col in (2, 5):
             place = 0*8 + col
-            board += Piece.black_bishop.value*POWERS[place]
+            board += BLACK_BISHOP*POWERS[place]
             place = 7*8 + col
-            board += Piece.white_bishop.value*POWERS[place]
+            board += WHITE_BISHOP*POWERS[place]
         # Rooks
         for col in (0, 7):
             place = 0*8 + col
-            board += Piece.black_rook.value*POWERS[place]
+            board += BLACK_ROOK*POWERS[place]
             place = 7*8 + col
-            board += Piece.white_rook.value*POWERS[place]
+            board += WHITE_ROOK*POWERS[place]
         # Queens
         place = 0*8 + 3
-        board += Piece.black_queen.value*POWERS[place]
+        board += BLACK_QUEEN*POWERS[place]
         place = 7*8 + 3
-        board += Piece.white_queen.value*POWERS[place]
+        board += WHITE_QUEEN*POWERS[place]
 
         # Kings
         place = 0*8 + 4
-        board += Piece.black_king.value*POWERS[place]
+        board += BLACK_KING*POWERS[place]
         place = 7*8 + 4
-        board += Piece.white_king.value*POWERS[place]
+        board += WHITE_KING*POWERS[place]
         # Castling: both sides start at 3, i.e. can castle either side
         board += 3*POWERS[WHITE_CASTLE_DIGIT]
         board += 3*POWERS[BLACK_CASTLE_DIGIT]
@@ -120,44 +119,44 @@ def set_board(variant='normal'):
         # Pawns
         for col in range(8):
             place = 1*8 + col
-            board += Piece.black_pawn.value*POWERS[place]
+            board += BLACK_PAWN*POWERS[place]
         # Knights
         for col in (1, 6):
             place = 0*8 + col
-            board += Piece.black_knight.value*POWERS[place]
+            board += BLACK_KNIGHT*POWERS[place]
         # Bishops
         for col in (2, 5):
             place = 0*8 + col
-            board += Piece.black_bishop.value*POWERS[place]
+            board += BLACK_BISHOP*POWERS[place]
         # Rooks
         for col in (0, 7):
             place = 0*8 + col
-            board += Piece.black_rook.value*POWERS[place]
+            board += BLACK_ROOK*POWERS[place]
         # Queens
         place = 0*8 + 3
-        board += Piece.black_queen.value*POWERS[place]
+        board += BLACK_QUEEN*POWERS[place]
         # Kings
         place = 0*8 + 4
-        board += Piece.black_king.value*POWERS[place]
+        board += BLACK_KING*POWERS[place]
         # White pawns
         for row in range(4, 8):
             for col in range(8):
                 place = row*8 + col
-                board += Piece.white_pawn.value*POWERS[place]
+                board += WHITE_PAWN*POWERS[place]
         for col in (1, 2, 5, 6):
             place = 3*8 + col
-            board += Piece.white_pawn.value*POWERS[place]
+            board += WHITE_PAWN*POWERS[place]
         # Castling: Only black can castle (not that it matters)
         board += 3*POWERS[BLACK_CASTLE_DIGIT]
     elif variant == 'test':
         place = 3*8 + 3
-        board += Piece.black_pawn.value*POWERS[place]
+        board += BLACK_PAWN*POWERS[place]
         place = 6*8 + 4
-        board += Piece.white_pawn.value*POWERS[place]
+        board += WHITE_PAWN*POWERS[place]
         place = 0*8 + 3
-        board += Piece.black_king.value*POWERS[place]
+        board += BLACK_KING*POWERS[place]
         place = 7*8 + 4
-        board += Piece.white_king.value*POWERS[place]
+        board += WHITE_KING*POWERS[place]
         # No castling
     # En passant initialized to nonexistent, i.e. row, col = 8, 8
     place = 66
@@ -353,9 +352,9 @@ def make_move(board, start, finish):
 
 def find_king(board, side):
     if side == 1:
-        king = Piece.white_king.value
+        king = WHITE_KING
     else:
-        king = Piece.black_king.value
+        king = BLACK_KING
     for row in range(8):
         for col in range(8):
             if king == piece_at_square(board, row, col):
@@ -583,9 +582,11 @@ def highlight_square(surface, row, col):
     surface.blit(highlight_image, rect)
 
 def play_AI_game(agent1, agent2, does_display=False, num_games=1):
+    pass
 
 def play_human_game(player_side, AI=None):
     ''' Play chess '''
+    pass
 
     global BOARD_SCALE, MAX_DEPTH
     board_image = pygame.image.load("images/chessboard.jpg")
