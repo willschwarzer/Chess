@@ -3,26 +3,30 @@ import cProfile
 from enum import Enum
 import numpy as np
 import pygame
+import torch
 import time
 import sys
 
 PIECE_IMGS = [
     None,
-    pygame.image.load("images/whitepawn.png"),
-    pygame.image.load("images/blackpawn.png"),
-    pygame.image.load("images/whiteknight.png"),
-    pygame.image.load("images/blackknight.png"),
-    pygame.image.load("images/whitebishop.png"),
-    pygame.image.load("images/blackbishop.png"),
-    pygame.image.load("images/whiterook.png"),
-    pygame.image.load("images/blackrook.png"),
-    pygame.image.load("images/whitequeen.png"),
-    pygame.image.load("images/blackqueen.png"),
-    pygame.image.load("images/whiteking.png"),
-    pygame.image.load("images/blackking.png")
+    pygame.image.load("images/whitepawn2.png"),
+    pygame.image.load("images/blackpawn2.png"),
+    pygame.image.load("images/whiteknight2.png"),
+    pygame.image.load("images/blackknight2.png"),
+    pygame.image.load("images/whitebishop2.png"),
+    pygame.image.load("images/blackbishop2.png"),
+    pygame.image.load("images/whiterook2.png"),
+    pygame.image.load("images/blackrook2.png"),
+    pygame.image.load("images/whitequeen2.png"),
+    pygame.image.load("images/blackqueen2.png"),
+    pygame.image.load("images/whiteking2.png"),
+    pygame.image.load("images/blackking2.png")
 ]
-BOARD_IMG = pygame.image.load("images/chessboard.jpg")
+BOARD_IMG = pygame.image.load("images/chessboard3.png")
 HIGHLIGHT_IMG = pygame.image.load("images/highlight.png")
+BOARD_SIZE = 598
+BOARD_MARGIN = 15
+SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8
 
 # See set_board() for an explanation of these digits
 WHITE_CASTLE_DIGIT = 64
@@ -36,25 +40,25 @@ INSIG_DIV_N_DIGIT = 69
 # MAX_DEPTH = 1
 # VARIANT = 'normal'
 
-one_dim_vals = np.array([[0.1, 0.2, 0.5, 1, 1, 0.5, 0.2, 0.1]])
+one_dim_vals = np.array([[0.1, 0.2, 0.3, 1, 1, 0.3, 0.2, 0.1]])
 SQUARE_VALS = np.transpose(one_dim_vals) @ one_dim_vals
 # SQUARE_VALS = np.array([[0.1]*8]*2 + [[0.1, 0.2, 0.3, 0.7, 0.7, 0.3, 0.2, 0.1]] + [[0.3, 0.4, 0.7, 1, 1, 0.7, 0.4, 0.3]]*2 + [[0.2]*8] + [[0.1]*8]*2)
 
 MOBILITY_SCALAR = np.array([
     0,
     1,
+    -1,
+    2,
+    -2,
     1,
-    1,
-    1,
-    0.5,
-    0.5,
+    -1,
     0.3,
-    0.3,
-    0.15,
+    -0.3,
     0.15,
     -0.15,
-    -0.15
-])/10
+    -10,
+    10
+])/5
 
 
 MATERIAL = np.array([
@@ -408,7 +412,7 @@ def test_check(board, side):
 def in_bounds(row, col):
     return (0 <= row <= 7) and (0 <= col <= 7)
 
-def is_legal(board, start, finish, check_threat=False):
+def is_legal(board, start, finish, check_threat=False, check_check=False):
     ''' Returns a piece-independent evaluation of whether or not a given
     move is legal. Easily extended to different rulesets, such as antichess.
     If check_threat is true, then checks whether or not the given piece
@@ -422,27 +426,29 @@ def is_legal(board, start, finish, check_threat=False):
     if get_side(piece_at_square(board, *finish)) == side:
         return False
     # If it results in a check for the player making the move, nope on out
-    # if test_check(make_move(board, start, finish), side):
-    #     return False
+    if check_check and test_check(make_move(board, start, finish), side):
+        return False
     return True
 
-def get_moves(board, row, col, check_threat=False):
+def get_moves(board, row, col, check_threat=False, check_check=False):
     piece = piece_at_square(board, row, col)
     if not piece:
         return []
     if piece in (1, 2):
-        return get_moves_pawn(board, row, col, check_threat)
-    if piece in (3, 4):
-        return get_moves_knight(board, row, col, check_threat)
-    if piece in (5, 6):
-        return get_moves_bishop(board, row, col, check_threat)
-    if piece in (7, 8):
-        return get_moves_rook(board, row, col, check_threat)
-    if piece in (9, 10):
-        return get_moves_queen(board, row, col, check_threat)
-    return get_moves_king(board, row, col, check_threat)
+        moves = get_moves_pawn(board, row, col, check_threat)
+    elif piece in (3, 4):
+        moves = get_moves_knight(board, row, col, check_threat)
+    elif piece in (5, 6):
+        moves = get_moves_bishop(board, row, col, check_threat)
+    elif piece in (7, 8):
+        moves = get_moves_rook(board, row, col, check_threat)
+    elif piece in (9, 10):
+        moves = get_moves_queen(board, row, col, check_threat)
+    else:
+        moves = get_moves_king(board, row, col, check_threat)
+    return [move for move in moves if is_legal(board, (row, col), move, check_threat, check_check)]
 
-def get_moves_pawn(board, row, col, check_threat=False):
+def get_moves_pawn(board, row, col, check_threat=False, test_check=False):
     side = get_side(piece_at_square(board, row, col))
     ep_square = get_ep_square(board)
     moves = []
@@ -478,12 +484,12 @@ def get_moves_pawn(board, row, col, check_threat=False):
         if ep_square == (row+1, col-1) or ep_square == (row+1, col+1):
             moves.append(ep_square)
 
-    return [move for move in moves if is_legal(board, (row, col), move)]
+    return moves
 
 def get_moves_knight(board, row, col, check_threat=False):
     side = get_side(piece_at_square(board, row, col))
     moves = [(row+2, col-1),(row+2, col+1),(row+1,col-2), (row+1,col+2),(row-1,col-2),(row-1,col+2),(row-2,col-1),(row-2, col+1)]
-    return [move for move in moves if is_legal(board, (row, col), move, check_threat)]
+    return moves
 
 def get_moves_bishop(board, row, col, check_threat=False):
     side = get_side(piece_at_square(board, row, col))
@@ -504,7 +510,7 @@ def get_moves_bishop(board, row, col, check_threat=False):
     while in_bounds(row-i, col-i) and not piece_at_square(board, row-i, col-i):
         i += 1
         moves.append((row-i, col-i))
-    return [move for move in moves if is_legal(board, (row, col), move, check_threat)]
+    return moves
 
 def get_moves_rook(board, row, col, check_threat=False):
     side = get_side(piece_at_square(board, row, col))
@@ -525,7 +531,7 @@ def get_moves_rook(board, row, col, check_threat=False):
     while in_bounds(row, col-i) and not piece_at_square(board, row, col-i):
         i += 1
         moves.append((row, col-i))
-    return [move for move in moves if is_legal(board, (row, col), move, check_threat)]
+    return moves
 
 def get_moves_queen(board, row, col, check_threat=False):
     side = get_side(piece_at_square(board, row, col))
@@ -547,28 +553,72 @@ def get_moves_king(board, row, col, check_threat=False):
             if all([square_is_empty(board, row, col-i) for i in range(1, 4)]):
                 if not test_check(make_move(board, (row, col), (row, col-1)), side):
                     moves.append((row, col-2))
-    return [move for move in moves if is_legal(board, (row, col), move, check_threat)]
+    return moves
 
 def has_no_moves(board, side):
     for row in range(8):
         for col in range(8):
             if get_side(piece_at_square(board, row, col)) == side:
-                if get_moves(board, row, col):
+                if get_moves(board, row, col, check_check=True):
                     return False
     return True
 
-def evaluate(board):
+def evaluate(board, intricate=False):
     '''Returns a value indicating how favorable the board is for each player. Smaller (more negative) scores favor Black, whereas larger scores favor White.'''
     # C = 0.1
     total = 0
+    if intricate:
+        king_locs = (find_king(board, 1), find_king(board, -1))
+        if not king_locs[0]:
+            return -10000
+        elif not king_locs[1]:
+            return 10000
     for row in range(8):
         for col in range(8):
             piece = piece_at_square(board, row, col)
             if piece != 0:
-                moves = get_moves(board, row, col, check_threat=True)
-                for move in moves:
-                    total += MOBILITY_SCALAR[piece]*SQUARE_VALS[move]
-                total += MATERIAL[piece]# + C*len(moves)
+                piece_total = 0
+                if piece == 11:
+                    # king safety
+                    if row == 7:
+                        if col == 1 or col == 6:
+                            piece_total = 1
+                        elif col == 2:
+                            piece_total = 0.75
+                    else: 
+                        piece_total = 0.5
+                elif piece == 12:
+                    # king safety
+                    if row == 1:
+                        if col == 1 or col == 6:
+                            piece_total += 1
+                        elif col == 2:
+                            piece_total += 0.75
+                    else: 
+                        piece_total = -1
+                else:
+                    side = get_side(piece)
+                    if intricate:
+                        # Value squares close to the enemy king
+                        if side == 1:
+                            enemy_king_row, enemy_king_col = king_locs[1]
+                        else:
+                            enemy_king_row, enemy_king_col = king_locs[0]
+                    moves = get_moves(board, row, col, check_threat=True)
+                    if intricate:
+                        for move in moves:
+                            king_proximity = (move[0] - enemy_king_row)**2 + (move[1] - enemy_king_col)**2
+                            # 7*7 + 7*7 = 98
+                            king_proximity /= 98
+                            piece_total += SQUARE_VALS[move]*king_proximity
+                    else:
+                        for move in moves:
+                            piece_total += SQUARE_VALS[move]
+                    # square root to encourage developing all pieces
+                    # piece_total = piece_total**(1/3)
+                    piece_total *= MOBILITY_SCALAR[piece]
+                piece_total += MATERIAL[piece]
+                total += piece_total# + C*len(moves)
     return total
 
 def get_all_moves(board, side):
@@ -635,7 +685,7 @@ def make_AI_move(board, side):
 def draw_board(board, surface):
     ''' Draws all pieces on a given board'''
     # Draw board
-    board_img = pygame.transform.scale(BOARD_IMG,(int(800*BOARD_SCALE),int(800*BOARD_SCALE)))
+    board_img = pygame.transform.scale(BOARD_IMG,(int(BOARD_SIZE*BOARD_SCALE),int(BOARD_SIZE*BOARD_SCALE)))
     rect = pygame.Rect(0, 0, surface.get_width(), surface.get_width())
     surface.blit(board_img, rect)
 
@@ -645,11 +695,14 @@ def draw_board(board, surface):
             piece = piece_at_square(board, row, col)
             if not piece:
                 continue
-            piece_img = PIECE_IMGS[piece]
             # XXX XXX XXX XXX X X X X oh god
             # TODO what sick man sends babies to fight
-            width = height = int(50*BOARD_SCALE)
-            rect = pygame.Rect(col*100*BOARD_SCALE + (50 - width/2)*BOARD_SCALE, row*100*BOARD_SCALE  + (50 - height/2)*BOARD_SCALE, col*100*BOARD_SCALE + (50 + width/2)*BOARD_SCALE, row*100*BOARD_SCALE + (50 + height/2)*BOARD_SCALE)
+            square_size = int(SQUARE_SIZE*BOARD_SCALE)
+            board_margin = int(BOARD_MARGIN*BOARD_SCALE)
+            piece_img = pygame.transform.scale(PIECE_IMGS[piece], (square_size,)*2)
+            x0 = int(board_margin + col*square_size)
+            y0 = int(board_margin + row*square_size)
+            rect = pygame.Rect(x0, y0, square_size, square_size)
             surface.blit(piece_img, rect)
 
 def print_board(board):
@@ -660,9 +713,12 @@ def print_board(board):
         print()
 
 def highlight_square(surface, row, col):
-    global BOARD_SCALE
-    highlight_image = pygame.transform.scale(HIGHLIGHT_IMG, (int(100*BOARD_SCALE), int(100*BOARD_SCALE)))
-    rect = pygame.Rect((col*100*BOARD_SCALE,row*100*BOARD_SCALE),(100*BOARD_SCALE,100*BOARD_SCALE))
+    square_size = int(SQUARE_SIZE*BOARD_SCALE)
+    board_margin = int(BOARD_MARGIN*BOARD_SCALE)
+    highlight_image = pygame.transform.scale(HIGHLIGHT_IMG, (square_size,)*2)
+    x0 = (board_margin + col*square_size)
+    y0 = (board_margin + row*square_size)
+    rect = pygame.Rect(x0, y0, square_size, square_size)
     surface.blit(highlight_image, rect)
 
 def main(two_player, player_side):
@@ -671,10 +727,11 @@ def main(two_player, player_side):
     board_image = pygame.image.load("images/chessboard.jpg")
     pygame.init()
 
-    width = int(800*BOARD_SCALE)
-    height = int(800*BOARD_SCALE)
-    surface = pygame.display.set_mode([width, height])
-    board_image = pygame.transform.scale(board_image,(width,height))
+    board_size = int(BOARD_SIZE*BOARD_SCALE)
+    board_margin = int(BOARD_MARGIN*BOARD_SCALE)
+    square_size = int(SQUARE_SIZE*BOARD_SCALE)
+    surface = pygame.display.set_mode([board_size]*2)
+    board_image = pygame.transform.scale(board_image,(board_size,)*2)
     board = set_board(variant=VARIANT)
         
     surface.fill([0, 0, 0])
@@ -693,31 +750,32 @@ def main(two_player, player_side):
         pygame.display.flip()
     done = False
     while True:
-        click_position = [0, 0]
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN and not done: #i.e. when the game is over, the only thing the players can do is exit
-                click_position[0] = event.pos[0]
-                click_position[1] = event.pos[1]
-                click_square = (click_position[1]//int(100*BOARD_SCALE), click_position[0]//int(100*BOARD_SCALE))
-                piece = piece_at_square(board, *click_square)
+                # click_x = margin_size + row*square_size
+                # row*square_size = click_x - margin_size
+                # row = (click_x - margin_size)/square_size
+                row = int((event.pos[1]-board_margin)/square_size)
+                col = int((event.pos[0]-board_margin)/square_size)
+                piece = piece_at_square(board, row, col)
                 if first_click:
                     if piece != None and get_side(piece) == player_side:
-                        moves = get_moves(board, *click_square)
+                        moves = get_moves(board, row, col)
                         #highlight available moves
                         for move in moves:
                             highlight_square(surface, *move)
                             pygame.display.flip()
-                        first_click_square = click_square
+                        first_click_square = (row, col)
                         first_click = False
                         continue #restart the event code, this time getting the move-determining (or selection-cancelling) click
                         
                 if not first_click:
                     draw_board(board, surface)
                     pygame.display.flip()
-                    if click_square in moves:
-                        board = make_move(board, first_click_square, click_square)
+                    if (row, col) in moves:
+                        board = make_move(board, first_click_square, (row, col))
                         surface.fill([0, 0, 0])
                         draw_board(board, surface)
                         pygame.display.flip()
@@ -773,7 +831,7 @@ def parse_args():
                         help='play human vs human')
     parser.add_argument('--depth', type=int, default=2,
                         help='max AI search depth')
-    parser.add_argument('--scale', type=int, default=1,
+    parser.add_argument('--scale', type=float, default=1,
                         help='scaling factor for the board')
     parser.add_argument('--player-side', type=str, default='white',
                         help='side to play vs AI (white or black)')
@@ -781,6 +839,8 @@ def parse_args():
                         help='which algorithms to self-play')
     parser.add_argument('--num-self-play-games', type=int, default=10,
                         help='how many games the algorithms should self-play')
+    parser.add_argument('--cuda', action='store_true', default=False,
+                        help='whether or not to use gpu')
     # parser.add_argument('')
     args = parser.parse_args()
 
@@ -803,11 +863,13 @@ def parse_args():
     return args
 
 if __name__ == "__main__":
-    global BOARD_SCALE, MAX_DEPTH, VARIANT
+    global BOARD_SCALE, MAX_DEPTH, VARIANT, DEVICE
     args = parse_args()
     BOARD_SCALE = args.scale
     MAX_DEPTH = args.depth
     VARIANT = args.variant
+    if args.cuda and torch.cuda.is_available():
+        DEVICE = torch.device('cuda')
     # if args.self_play != None:
     #     self_play(args.self_play[0], args.self_play[1], args.num_self_play_games)
     main(args.two_player, args.player_side)
