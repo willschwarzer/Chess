@@ -1,11 +1,17 @@
+'''
+Authors: Blake Johnson and Will Schwarzer
+Date: November 10, 2019
+Plays chess with humans or AIs, using pygame for input and display.
+'''
+
 import argparse
-import cProfile
-from enum import Enum
 import numpy as np
 import pygame
 import torch
 import time
 import sys
+
+import board
 
 PIECE_IMGS = [
     None,
@@ -22,525 +28,16 @@ PIECE_IMGS = [
     pygame.image.load("images/whiteking2.png"),
     pygame.image.load("images/blackking2.png")
 ]
+
 BOARD_IMG = pygame.image.load("images/chessboard3.png")
 HIGHLIGHT_IMG = pygame.image.load("images/highlight.png")
 BOARD_SIZE = 598
 BOARD_MARGIN = 15
 SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8
+# Board scale declared in __main__
 
-EMPTY=0
-WHITE_PAWN=1
-BLACK_PAWN=2
-WHITE_KNIGHT=3
-BLACK_KNIGHT=4
-WHITE_BISHOP=5
-BLACK_BISHOP=6
-WHITE_ROOK=7
-BLACK_ROOK=8
-WHITE_QUEEN=9
-BLACK_QUEEN=10
-WHITE_KING=11
-BLACK_KING=12
-
-# See set_board() for an explanation of these digits
-WHITE_CASTLE_DIGIT = 64
-BLACK_CASTLE_DIGIT = 65
-EP_ROW_DIGIT = 66
-EP_COL_DIGIT = 67
-INSIG_MOD_N_DIGIT = 68
-INSIG_DIV_N_DIGIT = 69
-
-# BOARD_SCALE = 1
-# MAX_DEPTH = 1
-# VARIANT = 'normal'
-
-NUM_PIECES = len(MATERIAL)
+NUM_PIECES = 13
 POWERS = np.array([NUM_PIECES**n for n in range(70)])
-
-def set_board(variant='normal'):
-    ''' Represented digitally: each square is a place, counting horizontally
-    from the upper left, and each piece is an enum;
-    64th and 65th digits are castling rights for white and black, respectively
-    (0 for neither side, 1 for kingside only, 2 for queenside only, 3 for both)
-    66th and 67th digits are row and col, respectively, for the square with
-    legal en passant, if any; they're set to 8 if there is no such square
-    68th and 69th digits are the number of turns since the last significant
-    move (as usual, defined as a capture or pawn push)
-    If n is number of pieces:
-    board = num_insignificant_moves/n * n^69 + num_insignificant_moves % n *n^68
-    + 
-    ep_col * n^67 + ep_col * n^66
-    +
-    black_castle_rights * n^65 + white_castle_rights * n^64
-    +
-    sum from i=0 to 63 of piece_i * n^i
-    '''
-    board = 0
-    if variant == 'normal':
-        # Pawns
-        for col in range(8):
-            place = 1*8 + col
-            board += BLACK_PAWN*POWERS[place]
-            place = 6*8 + col
-            board += WHITE_PAWN*POWERS[place]
-        # Knights
-        for col in (1, 6):
-            place = 0*8 + col
-            board += BLACK_KNIGHT*POWERS[place]
-            place = 7*8 + col
-            board += WHITE_KNIGHT*POWERS[place]
-        # Bishops
-        for col in (2, 5):
-            place = 0*8 + col
-            board += BLACK_BISHOP*POWERS[place]
-            place = 7*8 + col
-            board += WHITE_BISHOP*POWERS[place]
-        # Rooks
-        for col in (0, 7):
-            place = 0*8 + col
-            board += BLACK_ROOK*POWERS[place]
-            place = 7*8 + col
-            board += WHITE_ROOK*POWERS[place]
-        # Queens
-        place = 0*8 + 3
-        board += BLACK_QUEEN*POWERS[place]
-        place = 7*8 + 3
-        board += WHITE_QUEEN*POWERS[place]
-
-        # Kings
-        place = 0*8 + 4
-        board += BLACK_KING*POWERS[place]
-        place = 7*8 + 4
-        board += WHITE_KING*POWERS[place]
-        # Castling: both sides start at 3, i.e. can castle either side
-        board += 3*POWERS[WHITE_CASTLE_DIGIT]
-        board += 3*POWERS[BLACK_CASTLE_DIGIT]
-    elif variant == 'horde':
-        # Pawns
-        for col in range(8):
-            place = 1*8 + col
-            board += BLACK_PAWN*POWERS[place]
-        # Knights
-        for col in (1, 6):
-            place = 0*8 + col
-            board += BLACK_KNIGHT*POWERS[place]
-        # Bishops
-        for col in (2, 5):
-            place = 0*8 + col
-            board += BLACK_BISHOP*POWERS[place]
-        # Rooks
-        for col in (0, 7):
-            place = 0*8 + col
-            board += BLACK_ROOK*POWERS[place]
-        # Queens
-        place = 0*8 + 3
-        board += BLACK_QUEEN*POWERS[place]
-        # Kings
-        place = 0*8 + 4
-        board += BLACK_KING*POWERS[place]
-        # White pawns
-        for row in range(4, 8):
-            for col in range(8):
-                place = row*8 + col
-                board += WHITE_PAWN*POWERS[place]
-        for col in (1, 2, 5, 6):
-            place = 3*8 + col
-            board += WHITE_PAWN*POWERS[place]
-        # Castling: Only black can castle (not that it matters)
-        board += 3*POWERS[BLACK_CASTLE_DIGIT]
-    elif variant == 'test':
-        place = 3*8 + 3
-        board += BLACK_PAWN*POWERS[place]
-        place = 6*8 + 4
-        board += WHITE_PAWN*POWERS[place]
-        place = 0*8 + 3
-        board += BLACK_KING*POWERS[place]
-        place = 7*8 + 4
-        board += WHITE_KING*POWERS[place]
-        # No castling
-    # En passant initialized to nonexistent, i.e. row, col = 8, 8
-    place = 66
-    board += 8*POWERS[EP_ROW_DIGIT]
-    place = 67
-    board += 8*POWERS[EP_COL_DIGIT]
-    # num_insignificant_moves starts at 0, i.e. is 0 / n and 0 % n
-    return board
-
-def reset_insignificant_moves(board):
-    return board % POWERS[INSIG_MOD_N_DIGIT]
-
-def increment_insignificant_moves(board):
-    return board + POWERS[INSIG_MOD_N_DIGIT]
-
-def get_insignificant_moves(board):
-    return board // POWERS[INSIG_MOD_N_DIGIT]
-
-def get_ep_square(board):
-    row = (board // POWERS[EP_ROW_DIGIT]) % NUM_PIECES
-    col = (board // POWERS[EP_COL_DIGIT]) % NUM_PIECES
-    return (row, col)
-
-def set_ep_square(board, row, col):
-    board -= ((board // POWERS[EP_ROW_DIGIT]) %  NUM_PIECES)*POWERS[EP_ROW_DIGIT]
-    board -= ((board // POWERS[EP_COL_DIGIT]) %  NUM_PIECES)*POWERS[EP_COL_DIGIT]
-    board += row*POWERS[EP_ROW_DIGIT]
-    board += col*POWERS[EP_COL_DIGIT]
-    return board
-
-def reset_ep_square(board):
-    return set_ep_square(board, 8, 8)
-
-def get_castling_rights(board, side):
-    if side == 1:
-        castle_digit = WHITE_CASTLE_DIGIT
-    else:
-        castle_digit = BLACK_CASTLE_DIGIT
-    return (board // POWERS[castle_digit]) % NUM_PIECES
-
-def remove_castling_rights(board, side, castle_side):
-    if side == 1:
-        castle_digit = WHITE_CASTLE_DIGIT
-    else:
-        castle_digit = BLACK_CASTLE_DIGIT
-    castle_rights = (board // POWERS[castle_digit]) % NUM_PIECES
-    new_castle_rights = castle_rights
-    # Kingside
-    if castle_side == 1:
-        if castle_rights == 3:
-            new_castle_rights = 2
-        elif castle_rights == 1:
-            new_castle_rights = 0
-    # Queenside
-    else:
-        if castle_rights == 3:
-            new_castle_rights = 1
-        elif castle_rights == 2:
-            new_castle_rights = 0
-    diff = new_castle_rights - castle_rights
-    return board + diff*POWERS[castle_digit]
-
-def promote(board, side, col):
-    if side == 1:
-        row = 0
-    else:
-        row = 7
-    square = row*8 + col
-    # Piece at this square is a pawn
-    # For now, just put a queen there
-    # 8  = 9 - 1 = queen - pawn
-    # 8 = 10 - 2 = queen - pawn
-    board += 8 * POWERS[square]
-    return board
-
-def piece_at_square(board, row, col):
-    if not in_bounds(row, col):
-        return None
-    square = row*8 + col
-    return (board // POWERS[square]) % NUM_PIECES
-    # return (board // POWERS[square]) % NUM_PIECES
-
-def square_is_empty(board, row, col):
-    return (not piece_at_square(board, row, col))
-
-def get_side(piece):
-    if piece is None or piece == 0:
-        return None
-    if piece % 2 == 0:
-        return -1
-    else:
-        return 1
-
-def get_type(piece):
-    if not piece:
-        return None
-    if piece in (1, 2):
-        return 'pawn'
-    if piece in (3, 4):
-        return 'knight'
-    if piece in (5, 6):
-        return 'bishop'
-    if piece in (7, 8):
-        return 'rook'
-    if piece in (9, 10):
-        return 'queen'
-    return 'king'
-
-def make_move(board, start, finish):
-    piece = piece_at_square(board, *start)
-    # Note whether or not we're doing ep
-    is_ep = ((piece == 1 or piece == 2) and finish == get_ep_square(board))
-    # If there was en passant possible at a square, make it impossible
-    board = reset_ep_square(board)
-    # If moving a pawn two squares, put in the ep
-    # White pawn special rules
-    if piece == 1:
-        if finish[0] == start[0] - 2:
-            board = set_ep_square(board, start[0]-1, start[1])
-    # Black pawn
-    elif piece == 2:
-        if finish[0] == start[0] + 2:
-            board = set_ep_square(board, start[0]+1, start[1])
-    # If moving a rook, remove those castling rights
-    # White kingside rook
-    if start == (7, 7):
-        board = remove_castling_rights(board, 1, 1)
-    # White queenside rook
-    elif start == (7, 0):
-        board = remove_castling_rights(board, 1, -1)
-    # Black kingside rook
-    elif start == (0, 7):
-        board = remove_castling_rights(board, -1, 1)
-    # Black queenside rook
-    elif start == (0, 0):
-        board = remove_castling_rights(board, -1, -1)
-    # If moving a king, remove all castling rights
-    if piece == 11:
-        board = remove_castling_rights(board, 1, 1)
-        board = remove_castling_rights(board, 1, -1)
-    elif piece == 12:
-        board = remove_castling_rights(board, -1, 1)
-        board = remove_castling_rights(board, -1, -1)
-    start_square = start[0]*8 + start[1]
-    finish_square = finish[0]*8 + finish[1]
-    diff = piece*POWERS[finish_square] - \
-            piece*POWERS[start_square] - \
-            piece_at_square(board, *finish)*POWERS[finish_square]
-    if is_ep:
-        # White pawn: get rid of black pawn below it
-        if piece == 1:
-            removed_square = finish_square+8
-            diff -= 2*POWERS[removed_square]
-        # Black pawn: get rid of white pawn above it
-        else:
-            removed_square = finish_square-8
-            diff -= 1*POWERS[removed_square]
-    # Deal with castling by also moving the rook
-    elif piece == 11:
-        # White castling kingside
-        if finish[1] == start[1]+2:
-            old_rook_square = finish_square+1
-            new_rook_square = finish_square-1
-            diff += 7*(POWERS[new_rook_square] - POWERS[old_rook_square])
-        # White castling queenside
-        elif finish[1] == start[1]-2:
-            old_rook_square = finish_square-2
-            new_rook_square = finish_square+1
-            diff += 7*(POWERS[new_rook_square] - POWERS[old_rook_square])
-    elif piece == 12:
-        # Black castling kingside
-        if finish[1] == start[1]+2:
-            old_rook_square = finish_square+1
-            new_rook_square = finish_square-1
-            diff += 8*(POWERS[new_rook_square] - POWERS[old_rook_square])
-        # Black castling queenside
-        elif finish[1] == start[1]-2:
-            old_rook_square = finish_square-2
-            new_rook_square = finish_square+1
-            diff += 8*(POWERS[new_rook_square] - POWERS[old_rook_square])
-
-    board = board + diff
-    # Deal with promotion/en passant
-    # White pawn
-    if piece == 1:
-        if finish[0] == 0:
-            board = promote(board, 1, finish[1])
-    # Black pawn
-    elif piece == 2:
-        if finish[0] == 7:
-            board = promote(board, -1, finish[1])
-    return board
-
-def find_king(board, side):
-    if side == 1:
-        king = WHITE_KING
-    else:
-        king = BLACK_KING
-    for row in range(8):
-        for col in range(8):
-            if king == piece_at_square(board, row, col):
-                return (row, col)
-    return None
-
-def test_check(board, side):
-    king_square = find_king(board, side)
-    for row in range(8):
-        for col in range(8):
-            piece = piece_at_square(board, row, col)
-            if piece != 0 and get_side(piece) != side:
-                if king_square in get_moves(board, row, col, True):
-                    return True
-    return False
-
-def in_bounds(row, col):
-    return (0 <= row <= 7) and (0 <= col <= 7)
-
-def is_legal(board, start, finish, check_threat=False, check_check=False):
-    ''' Returns a piece-independent evaluation of whether or not a given
-    move is legal. Easily extended to different rulesets, such as antichess.
-    If check_threat is true, then checks whether or not the given piece
-    threatens the square (e.g., this will be true if it has a friend there.)'''
-    if not in_bounds(*finish):
-        return False
-    # If we're just checking threat, we don't care about being in check
-    if check_threat:
-        return True
-    side = get_side(piece_at_square(board, *start))
-    if get_side(piece_at_square(board, *finish)) == side:
-        return False
-    # If it results in a check for the player making the move, nope on out
-    if check_check and test_check(make_move(board, start, finish), side):
-        return False
-    return True
-
-def get_moves(board, row, col, check_threat=False, check_check=False):
-    piece = piece_at_square(board, row, col)
-    if not piece:
-        return []
-    if piece in (1, 2):
-        moves = get_moves_pawn(board, row, col, check_threat)
-    elif piece in (3, 4):
-        moves = get_moves_knight(board, row, col, check_threat)
-    elif piece in (5, 6):
-        moves = get_moves_bishop(board, row, col, check_threat)
-    elif piece in (7, 8):
-        moves = get_moves_rook(board, row, col, check_threat)
-    elif piece in (9, 10):
-        moves = get_moves_queen(board, row, col, check_threat)
-    else:
-        moves = get_moves_king(board, row, col, check_threat)
-    return [move for move in moves if is_legal(board, (row, col), move, check_threat, check_check)]
-
-def get_moves_pawn(board, row, col, check_threat=False, test_check=False):
-    side = get_side(piece_at_square(board, row, col))
-    ep_square = get_ep_square(board)
-    moves = []
-    if side == 1:
-        if check_threat:
-            return [move for move in [(row-1, col-1), (row-1, col+1)] if is_legal(board, (row, col), move, True)]
-        # going up
-        if row == 6:
-            if square_is_empty(board, row-1, col) and square_is_empty(board, row-2, col):
-                moves.append((row-2, col))
-        if square_is_empty(board, row-1, col):
-            moves.append((row-1, col))
-        if get_side(piece_at_square(board, row-1, col-1)) == -1:
-            moves.append((row-1, col-1))
-        if get_side(piece_at_square(board, row-1, col+1)) == -1:
-            moves.append((row-1, col+1))
-        if ep_square == (row-1, col-1) or ep_square == (row-1, col+1):
-            moves.append(ep_square)
-        # TODO might be a little slower than doing the logic in the if statement
-    else:
-        if check_threat:
-            return [move for move in [(row+1, col-1), (row+1, col+1)] if is_legal(board, (row, col), move, True)]
-        # going down
-        if row == 1:
-            if square_is_empty(board, row+1, col) and square_is_empty(board, row+2, col):
-                moves.append((row+2, col))
-        if square_is_empty(board, row+1, col):
-            moves.append((row+1, col))
-        if get_side(piece_at_square(board, row+1, col-1)) == 1:
-            moves.append((row+1, col-1))
-        if get_side(piece_at_square(board, row+1, col+1)) == 1:
-            moves.append((row+1, col+1))
-        if ep_square == (row+1, col-1) or ep_square == (row+1, col+1):
-            moves.append(ep_square)
-
-    return moves
-
-def get_moves_knight(board, row, col, check_threat=False):
-    side = get_side(piece_at_square(board, row, col))
-    moves = [(row+2, col-1),(row+2, col+1),(row+1,col-2), (row+1,col+2),(row-1,col-2),(row-1,col+2),(row-2,col-1),(row-2, col+1)]
-    return moves
-
-def get_moves_bishop(board, row, col, check_threat=False):
-    side = get_side(piece_at_square(board, row, col))
-    moves = [(row+1, col+1), (row+1, col-1), (row-1, col+1), (row-1, col-1)]
-    i = 1
-    while in_bounds(row+i, col+i) and not piece_at_square(board, row+i, col+i):
-        i += 1
-        moves.append((row+i, col+i))
-    i = 1
-    while in_bounds(row+i, col-i) and not piece_at_square(board, row+i, col-i):
-        i += 1
-        moves.append((row+i, col-i))
-    i = 1
-    while in_bounds(row-i, col+i) and not piece_at_square(board, row-i, col+i):
-        i += 1
-        moves.append((row-i, col+i))
-    i = 1
-    while in_bounds(row-i, col-i) and not piece_at_square(board, row-i, col-i):
-        i += 1
-        moves.append((row-i, col-i))
-    return moves
-
-def get_moves_rook(board, row, col, check_threat=False):
-    side = get_side(piece_at_square(board, row, col))
-    moves = [(row+1, col), (row, col-1), (row, col+1), (row-1, col)]
-    i = 1
-    while in_bounds(row+i, col) and not piece_at_square(board, row+i, col):
-        i += 1
-        moves.append((row+i, col))
-    i = 1
-    while in_bounds(row-i, col) and not piece_at_square(board, row-i, col):
-        i += 1
-        moves.append((row-i, col))
-    i = 1
-    while in_bounds(row, col+i) and not piece_at_square(board, row, col+i):
-        i += 1
-        moves.append((row, col+i))
-    i = 1
-    while in_bounds(row, col-i) and not piece_at_square(board, row, col-i):
-        i += 1
-        moves.append((row, col-i))
-    return moves
-
-def get_moves_queen(board, row, col, check_threat=False):
-    side = get_side(piece_at_square(board, row, col))
-    diags = get_moves_bishop(board, row, col, check_threat)
-    orthogs = get_moves_rook(board, row, col, check_threat)
-    return diags + orthogs
-
-def get_moves_king(board, row, col, check_threat=False):
-    side = get_side(piece_at_square(board, row, col))
-    moves = [(row, col+1), (row+1,col), (row+1, col+1), (row-1, col),(row,col-1), (row-1, col-1), (row+1, col-1), (row-1, col+1)]
-    # Castling
-    castle_rights = get_castling_rights(board, side)
-    if not check_threat and not test_check(board, side):
-        if castle_rights == 1 or castle_rights == 3:
-            if square_is_empty(board, row, col+1) and square_is_empty(board, row, col+2):
-                if not test_check(make_move(board, (row, col), (row, col+1)), side):
-                    moves.append((row, col+2))
-        if castle_rights == 2 or castle_rights == 3:
-            if all([square_is_empty(board, row, col-i) for i in range(1, 4)]):
-                if not test_check(make_move(board, (row, col), (row, col-1)), side):
-                    moves.append((row, col-2))
-    return moves
-
-def has_no_moves(board, side):
-    for row in range(8):
-        for col in range(8):
-            if get_side(piece_at_square(board, row, col)) == side:
-                if get_moves(board, row, col, check_check=True):
-                    return False
-    return True
-
-
-def get_all_moves(board, side):
-    moves = []
-    for row in range(8):
-        for col in range(8):
-            if get_side(piece_at_square(board, row, col)) == side:
-                for move in get_moves(board, row, col):
-                    moves.append(((row, col), move))
-    return moves
-
-
-
-def make_AI_move(board, side, AI_agent):
-    #move = alpha_beta(board, 0, -100000, 100000, side)[0]
-    move = AI_agent.make_move(board, side)
-    return make_move(board, move[0], move[1])
 
 def draw_board(board, surface):
     ''' Draws all pieces on a given board'''
@@ -552,7 +49,7 @@ def draw_board(board, surface):
     # Draw pieces
     for row in range(8):
         for col in range(8):
-            piece = piece_at_square(board, row, col)
+            piece = board.piece_at_square(board, row, col)
             if not piece:
                 continue
             # XXX XXX XXX XXX X X X X oh god
@@ -569,7 +66,7 @@ def print_board(board):
     ''' For debugging: just prints all pieces on the board in numeric form'''
     for row in range(8):
         for col in range(8):
-            print(piece_at_square(board, row, col), end=' ')
+            print(board.piece_at_square(board, row, col), end=' ')
         print()
 
 def highlight_square(surface, row, col):
@@ -597,7 +94,7 @@ def play_human_game(player_side, AI=None):
     square_size = int(SQUARE_SIZE*BOARD_SCALE)
     surface = pygame.display.set_mode([board_size]*2)
     board_image = pygame.transform.scale(board_image,(board_size,)*2)
-    board = set_board(variant=VARIANT)
+    board = board.set_board(variant=VARIANT)
         
     surface.fill([0, 0, 0])
     draw_board(board, surface)
@@ -609,7 +106,7 @@ def play_human_game(player_side, AI=None):
     if not AI:
         player_side = 1
     elif player_side == -1:
-        board = make_AI_move(board, -player_side)
+        board = board.make_AI_move(board, -player_side)
         surface.fill([0, 0, 0])
         draw_board(board, surface)
         pygame.display.flip()
@@ -624,10 +121,10 @@ def play_human_game(player_side, AI=None):
                 # row = (click_x - margin_size)/square_size
                 row = int((event.pos[1]-board_margin)/square_size)
                 col = int((event.pos[0]-board_margin)/square_size)
-                piece = piece_at_square(board, row, col)
+                piece = board.piece_at_square(board, row, col)
                 if first_click:
                     if piece != None and get_side(piece) == player_side:
-                        moves = get_moves(board, row, col)
+                        moves = board.get_moves(board, row, col)
                         #highlight available moves
                         for move in moves:
                             highlight_square(surface, *move)
@@ -640,21 +137,21 @@ def play_human_game(player_side, AI=None):
                     draw_board(board, surface)
                     pygame.display.flip()
                     if (row, col) in moves:
-                        board = make_move(board, first_click_square, (row, col))
+                        board = board.make_move(board, first_click_square, (row, col))
                         surface.fill([0, 0, 0])
                         draw_board(board, surface)
                         pygame.display.flip()
 
                         if player_side == 1:
-                            if has_no_moves(board, -1):
-                                if test_check(board, -1):
+                            if board.has_no_moves(board, -1):
+                                if board.test_check(board, -1):
                                     print('White wins!')
                                 else:
                                     print('Stalemate.')
                                 done = True
                         else:
-                            if has_no_moves(board, 1):
-                                if test_check(board, 1) or VARIANT == 'horde':
+                            if board.has_no_moves(board, 1):
+                                if board.test_check(board, 1) or VARIANT == 'horde':
                                     print('Black wins!')
                                 else:
                                     print('Stalemate.')
@@ -665,21 +162,21 @@ def play_human_game(player_side, AI=None):
                                 player_side *= -1
                             else:
                                 # cProfile.run('make_AI_move(board, -player_side)')
-                                board = make_AI_move(board, -player_side)
+                                board = board.make_AI_move(board, -player_side)
                                 draw_board(board, surface)
                                 pygame.display.flip()
 
                             # Check to see if the AI checkmated the player
                             if player_side == -1:
-                                if has_no_moves(board, -1):
-                                    if test_check(board, -1):
+                                if board.has_no_moves(board, -1):
+                                    if board.test_check(board, -1):
                                         print('White wins!')
                                     else:
                                         print('Stalemate.')
                                     done = True
                             else:
-                                if has_no_moves(board, 1):
-                                    if test_check(board, 1) or VARIANT=='horde':
+                                if board.has_no_moves(board, 1):
+                                    if board.test_check(board, 1) or VARIANT=='horde':
                                         print('Black wins!')
                                     else:
                                         print('Stalemate.')
@@ -731,13 +228,13 @@ def parse_args():
     return args
 
 if __name__ == "__main__":
-    global BOARD_SCALE, MAX_DEPTH, VARIANT, DEVICE
     args = parse_args()
     BOARD_SCALE = args.scale
     MAX_DEPTH = args.depth
     VARIANT = args.variant
     if args.cuda and torch.cuda.is_available():
         DEVICE = torch.device('cuda')
+    # Instantiate AIs (passing in device to DQN)
     # if args.self_play != None:
     #     self_play(args.self_play[0], args.self_play[1], args.num_self_play_games)
     #main(args.two_player, args.player_side)
