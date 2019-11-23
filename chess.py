@@ -575,8 +575,9 @@ def get_all_moves(board, side):
 
 
 
-def make_AI_move(board, side):
-    move = alpha_beta(board, 0, -100000, 100000, side)[0]
+def make_AI_move(board, side, AI_agent):
+    #move = alpha_beta(board, 0, -100000, 100000, side)[0]
+    move = AI_agent.make_move()
     return make_move(board, move[0], move[1])
 
 def draw_board(board, surface):

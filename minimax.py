@@ -1,6 +1,12 @@
 from chess import *
+import AI
 
 
+class minimax(AI):
+	def __init__(self):
+		pass
+	def get_move(self,board):
+		return alpha_beta(board, 0, -100000, 100000, side)[0]
 
 def evaluate(board, intricate=False):
     '''Returns a value indicating how favorable the board is for each player. Smaller (more negative) scores favor Black, whereas larger scores favor White.'''
