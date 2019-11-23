@@ -1,4 +1,4 @@
-from chess import *
+import chess
 
 one_dim_vals = np.array([[0.1, 0.2, 0.3, 1, 1, 0.3, 0.2, 0.1]])
 SQUARE_VALS = np.transpose(one_dim_vals) @ one_dim_vals
@@ -41,14 +41,14 @@ def evaluate(board, intricate=False):
     # C = 0.1
     total = 0
     if intricate:
-        king_locs = (find_king(board, 1), find_king(board, -1))
+        king_locs = (chess.find_king(board, 1), chess.find_king(board, -1))
         if not king_locs[0]:
             return -10000
         elif not king_locs[1]:
             return 10000
     for row in range(8):
         for col in range(8):
-            piece = piece_at_square(board, row, col)
+            piece = chess.piece_at_square(board, row, col)
             if piece != 0:
                 piece_total = 0
                 if piece == 11:
@@ -70,14 +70,14 @@ def evaluate(board, intricate=False):
                     else: 
                         piece_total = -1
                 else:
-                    side = get_side(piece)
+                    side = chess.get_side(piece)
                     if intricate:
                         # Value squares close to the enemy king
                         if side == 1:
                             enemy_king_row, enemy_king_col = king_locs[1]
                         else:
                             enemy_king_row, enemy_king_col = king_locs[0]
-                    moves = get_moves(board, row, col, check_threat=True)
+                    moves = chess.get_moves(board, row, col, check_threat=True)
                     if intricate:
                         for move in moves:
                             king_proximity = (move[0] - enemy_king_row)**2 + (move[1] - enemy_king_col)**2
