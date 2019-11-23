@@ -583,9 +583,11 @@ def highlight_square(surface, row, col):
     surface.blit(highlight_image, rect)
 
 def play_AI_game(agent1, agent2, does_display=False, num_games=1):
+    pass
 
 def play_human_game(player_side, AI=None):
     ''' Play chess '''
+    pass
 
     global BOARD_SCALE, MAX_DEPTH
     board_image = pygame.image.load("images/chessboard.jpg")
