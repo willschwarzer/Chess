@@ -2,6 +2,7 @@
 Authors: Blake Johnson and Will Schwarzer
 Date: November 10, 2019
 Plays chess with humans or AIs, using pygame for input and display.
+This file mostly handles IO for both display and playing the game
 '''
 
 import argparse
@@ -12,6 +13,9 @@ import time
 import sys
 
 import board
+import agent
+import minimax
+
 
 PIECE_IMGS = [
     None,
@@ -78,111 +82,100 @@ def highlight_square(surface, row, col):
     rect = pygame.Rect(x0, y0, square_size, square_size)
     surface.blit(highlight_image, rect)
 
-def play_AI_game(agent1, agent2, does_display=False, num_games=1):
-    pass
 
-def play_human_game(player_side, AI=None):
-    ''' Play chess '''
-    pass
 
-    global BOARD_SCALE, MAX_DEPTH
-    board_image = pygame.image.load("images/chessboard.jpg")
-    pygame.init()
+class Human(Agent):
+    def __init__(self,side, surface):
+        self.side = side
+        self.surface = surface
 
-    board_size = int(BOARD_SIZE*BOARD_SCALE)
-    board_margin = int(BOARD_MARGIN*BOARD_SCALE)
-    square_size = int(SQUARE_SIZE*BOARD_SCALE)
-    surface = pygame.display.set_mode([board_size]*2)
-    board_image = pygame.transform.scale(board_image,(board_size,)*2)
-    board = board.set_board(variant=VARIANT)
-        
-    surface.fill([0, 0, 0])
-    draw_board(board, surface)
-    pygame.display.flip()
-        
-    first_click = True
-    checkmate_value = 0
-        
-    if not AI:
-        player_side = 1
-    elif player_side == -1:
-        board = board.make_AI_move(board, -player_side)
-        surface.fill([0, 0, 0])
-        draw_board(board, surface)
-        pygame.display.flip()
-    done = False
+    def get_move(self,board):
+        while True:
+            first_click = True
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    # click_x = margin_size + row*square_size
+                    # row*square_size = click_x - margin_size
+                    # row = (click_x - margin_size)/square_size
+                    row = int((event.pos[1]-board_margin)/square_size)
+                    col = int((event.pos[0]-board_margin)/square_size)
+                    piece = board.piece_at_square(board, row, col)
+                    if first_click:
+                        if piece != None and get_side(piece) == player_side:
+                            moves = board.get_moves(board, row, col)
+                            #highlight available moves
+                            for move in moves:
+                                highlight_square(surface, *move)
+                                pygame.display.flip()
+                            first_click_square = (row, col)
+                            first_click = False
+                            continue #restart the event code, this time getting the move-determining (or selection-cancelling) click
+                            
+                    if not first_click:
+                        draw_board(board, surface)
+                        pygame.display.flip()
+                        if (row, col) in moves:
+                            return (first_click_square, (row, col))
+
+
+
+def wait_for_click():
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN and not done: #i.e. when the game is over, the only thing the players can do is exit
-                # click_x = margin_size + row*square_size
-                # row*square_size = click_x - margin_size
-                # row = (click_x - margin_size)/square_size
-                row = int((event.pos[1]-board_margin)/square_size)
-                col = int((event.pos[0]-board_margin)/square_size)
-                piece = board.piece_at_square(board, row, col)
-                if first_click:
-                    if piece != None and get_side(piece) == player_side:
-                        moves = board.get_moves(board, row, col)
-                        #highlight available moves
-                        for move in moves:
-                            highlight_square(surface, *move)
-                            pygame.display.flip()
-                        first_click_square = (row, col)
-                        first_click = False
-                        continue #restart the event code, this time getting the move-determining (or selection-cancelling) click
-                        
-                if not first_click:
-                    draw_board(board, surface)
-                    pygame.display.flip()
-                    if (row, col) in moves:
-                        board = board.make_move(board, first_click_square, (row, col))
-                        surface.fill([0, 0, 0])
-                        draw_board(board, surface)
-                        pygame.display.flip()
+            elif event.type == pygame.MOUSEBUTTONUP:
+                return
 
-                        if player_side == 1:
-                            if board.has_no_moves(board, -1):
-                                if board.test_check(board, -1):
-                                    print('White wins!')
-                                else:
-                                    print('Stalemate.')
-                                done = True
-                        else:
-                            if board.has_no_moves(board, 1):
-                                if board.test_check(board, 1) or VARIANT == 'horde':
-                                    print('Black wins!')
-                                else:
-                                    print('Stalemate.')
-                                done = True
-                        # Switch players
-                        if not done:
-                            if not AI:
-                                player_side *= -1
-                            else:
-                                # cProfile.run('make_AI_move(board, -player_side)')
-                                board = board.make_AI_move(board, -player_side)
-                                draw_board(board, surface)
-                                pygame.display.flip()
 
-                            # Check to see if the AI checkmated the player
-                            if player_side == -1:
-                                if board.has_no_moves(board, -1):
-                                    if board.test_check(board, -1):
-                                        print('White wins!')
-                                    else:
-                                        print('Stalemate.')
-                                    done = True
-                            else:
-                                if board.has_no_moves(board, 1):
-                                    if board.test_check(board, 1) or VARIANT=='horde':
-                                        print('Black wins!')
-                                    else:
-                                        print('Stalemate.')
-                                    done = True
 
-                    first_click = True
+
+
+def play_game(agent1, agent2, surface, variant):
+    ''' Play chess '''
+    board = board.set_board(variant=variant)
+    surface.fill([0, 0, 0])
+    draw_board(board, surface)
+    pygame.display.flip()
+    while True:
+        move = agent1.get_move(board)
+        board = board.make_move(board,move*)
+        if surface:
+            surface.fill([0, 0, 0])
+            draw_board(board, surface)
+            pygame.display.flip()
+
+        # checkmate checks, etc
+        if board.has_no_moves(board, -1):
+            if board.test_check(board, -1):
+                print('White wins!')
+                result = 1
+            else:
+                print('Stalemate.')
+                result = 0
+            # wait for human to click?
+            if type(agent1) == Human or type(agent2) == Human:
+                wait_for_click()
+            return result
+
+        move = agent2.get_move(board)
+        board = board.make_move(board,move*)
+        if surface:
+            surface.fill([0, 0, 0])
+            draw_board(board, surface)
+            pygame.display.flip()
+        if board.has_no_moves(board, 1):
+            if board.test_check(board, 1) or VARIANT == 'horde':
+                print('Black wins!')
+                result = -1
+            else:
+                print('Stalemate.')
+                result = 0
+            if type(agent1) == Human or type(agent2) == Human:
+                wait_for_click()
+            return result
                     
                     
 def parse_args():
@@ -227,14 +220,39 @@ def parse_args():
 
     return args
 
+def main(args):
+    if args.display or player1=="human" or player2=="human":
+        board_image = pygame.image.load("images/chessboard.jpg")
+        pygame.init()
+
+        board_size = int(BOARD_SIZE*BOARD_SCALE)
+        board_margin = int(BOARD_MARGIN*BOARD_SCALE)
+        square_size = int(SQUARE_SIZE*BOARD_SCALE)
+        surface = pygame.display.set_mode([board_size]*2)
+    else:
+        surface = None
+
+    if player1 == "human":
+        agent1 = Human(1,surface)
+    elif player1 == "minimax":
+        agent1 = minimax.Minimax(1, args.minimax_depth)
+
+    if player2 == "human":
+        agent2 = Human(2, surface)
+    elif player2 == "minimax":
+        agent2 = minimax.Minimax(2, args.minimax_depth)
+
+    for i in range(args.num_games):
+        play_game(agent1, agent2, surface, args.variant)
+
+
 if __name__ == "__main__":
     args = parse_args()
     BOARD_SCALE = args.scale
     MAX_DEPTH = args.depth
     VARIANT = args.variant
+
     if args.cuda and torch.cuda.is_available():
         DEVICE = torch.device('cuda')
-    # Instantiate AIs (passing in device to DQN)
-    # if args.self_play != None:
-    #     self_play(args.self_play[0], args.self_play[1], args.num_self_play_games)
-    #main(args.two_player, args.player_side)
+
+    main(args.two_player, args.player_side)

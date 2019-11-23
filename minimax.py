@@ -3,14 +3,11 @@ import Agent
 import heuristic
 import board
 
-class minimax(Agent):
+class Minimax(Agent):
 
-	def __init__(self, depth, side):
+	def __init__(self, side, depth):
 		self.depth = depth
 		self.side = side
-
-	def switch_sides(self):
-		self.side = -1 if self.side+1 else 1
 
 	def get_move(self,board):
 		return alpha_beta(board, 0, -100000, 100000, self.side)[0]
