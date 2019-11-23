@@ -1,4 +1,5 @@
 import board
+import numpy as np
 
 one_dim_vals = np.array([[0.1, 0.2, 0.3, 1, 1, 0.3, 0.2, 0.1]])
 SQUARE_VALS = np.transpose(one_dim_vals) @ one_dim_vals
@@ -36,19 +37,19 @@ MATERIAL = np.array([
     -1000
 ])
 
-def evaluate(board, intricate=False):
+def evaluate(chessboard, intricate=False):
     '''Returns a value indicating how favorable the board is for each player. Smaller (more negative) scores favor Black, whereas larger scores favor White.'''
     # C = 0.1
     total = 0
     if intricate:
-        king_locs = (board.find_king(board, 1), board.find_king(board, -1))
+        king_locs = (board.find_king(chessboard, 1), board.find_king(chessboard, -1))
         if not king_locs[0]:
             return -10000
         elif not king_locs[1]:
             return 10000
     for row in range(8):
         for col in range(8):
-            piece = board.piece_at_square(board, row, col)
+            piece = board.piece_at_square(chessboard, row, col)
             if piece != 0:
                 piece_total = 0
                 if piece == 11:
@@ -77,7 +78,7 @@ def evaluate(board, intricate=False):
                             enemy_king_row, enemy_king_col = king_locs[1]
                         else:
                             enemy_king_row, enemy_king_col = king_locs[0]
-                    moves = board.get_moves(board, row, col, check_threat=True)
+                    moves = board.get_moves(chessboard, row, col, check_threat=True)
                     if intricate:
                         for move in moves:
                             king_proximity = (move[0] - enemy_king_row)**2 + (move[1] - enemy_king_col)**2
@@ -92,3 +93,4 @@ def evaluate(board, intricate=False):
                     piece_total *= MOBILITY_SCALAR[piece]
                 piece_total += MATERIAL[piece]
                 total += piece_total# + C*len(moves)
+    return total

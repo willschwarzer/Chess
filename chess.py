@@ -6,7 +6,6 @@ This file mostly handles IO for both display and playing the game
 '''
 
 import argparse
-import numpy as np
 import pygame
 import torch
 import time
@@ -40,10 +39,7 @@ BOARD_MARGIN = 15
 SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8
 # Board scale declared in __main__
 
-NUM_PIECES = 13
-POWERS = np.array([NUM_PIECES**n for n in range(70)])
-
-def draw_board(board, surface):
+def draw_board(chessboard, surface):
     ''' Draws all pieces on a given board'''
     # Draw board
     board_img = pygame.transform.scale(BOARD_IMG,(int(BOARD_SIZE*BOARD_SCALE),int(BOARD_SIZE*BOARD_SCALE)))
@@ -53,7 +49,7 @@ def draw_board(board, surface):
     # Draw pieces
     for row in range(8):
         for col in range(8):
-            piece = board.piece_at_square(board, row, col)
+            piece = board.piece_at_square(chessboard, row, col)
             if not piece:
                 continue
             # XXX XXX XXX XXX X X X X oh god
@@ -66,11 +62,11 @@ def draw_board(board, surface):
             rect = pygame.Rect(x0, y0, square_size, square_size)
             surface.blit(piece_img, rect)
 
-def print_board(board):
+def print_board(chessboard):
     ''' For debugging: just prints all pieces on the board in numeric form'''
     for row in range(8):
         for col in range(8):
-            print(board.piece_at_square(board, row, col), end=' ')
+            print(board.piece_at_square(chessboard, row, col), end=' ')
         print()
 
 def highlight_square(surface, row, col):
@@ -84,14 +80,14 @@ def highlight_square(surface, row, col):
 
 
 
-class Human(Agent):
+class Human(agent.Agent):
     def __init__(self,side, surface):
         self.side = side
         self.surface = surface
 
-    def get_move(self,board):
+    def get_move(self,chessboard):
+        first_click = True
         while True:
-            first_click = True
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     sys.exit()
@@ -101,10 +97,10 @@ class Human(Agent):
                     # row = (click_x - margin_size)/square_size
                     row = int((event.pos[1]-board_margin)/square_size)
                     col = int((event.pos[0]-board_margin)/square_size)
-                    piece = board.piece_at_square(board, row, col)
+                    piece = board.piece_at_square(chessboard, row, col)
                     if first_click:
-                        if piece != None and get_side(piece) == player_side:
-                            moves = board.get_moves(board, row, col)
+                        if piece != None and board.get_side(piece) == self.side:
+                            moves = board.get_moves(chessboard, row, col)
                             #highlight available moves
                             for move in moves:
                                 highlight_square(surface, *move)
@@ -114,10 +110,12 @@ class Human(Agent):
                             continue #restart the event code, this time getting the move-determining (or selection-cancelling) click
                             
                     if not first_click:
-                        draw_board(board, surface)
+                        draw_board(chessboard, surface)
                         pygame.display.flip()
                         if (row, col) in moves:
                             return (first_click_square, (row, col))
+                        else:
+                            first_click = True
 
 
 
@@ -135,21 +133,21 @@ def wait_for_click():
 
 def play_game(agent1, agent2, surface, variant):
     ''' Play chess '''
-    board = board.set_board(variant=variant)
+    chessboard = board.set_board(variant=variant)
     surface.fill([0, 0, 0])
-    draw_board(board, surface)
+    draw_board(chessboard, surface)
     pygame.display.flip()
     while True:
-        move = agent1.get_move(board)
-        board = board.make_move(board,move*)
+        move = agent1.get_move(chessboard)
+        chessboard = board.make_move(chessboard, *move)
         if surface:
             surface.fill([0, 0, 0])
-            draw_board(board, surface)
+            draw_board(chessboard, surface)
             pygame.display.flip()
 
         # checkmate checks, etc
-        if board.has_no_moves(board, -1):
-            if board.test_check(board, -1):
+        if board.has_no_moves(chessboard, -1):
+            if board.test_check(chessboard, -1):
                 print('White wins!')
                 result = 1
             else:
@@ -160,14 +158,14 @@ def play_game(agent1, agent2, surface, variant):
                 wait_for_click()
             return result
 
-        move = agent2.get_move(board)
-        board = board.make_move(board,move*)
+        move = agent2.get_move(chessboard)
+        chessboard = board.make_move(chessboard, *move)
         if surface:
             surface.fill([0, 0, 0])
-            draw_board(board, surface)
+            draw_board(chessboard, surface)
             pygame.display.flip()
-        if board.has_no_moves(board, 1):
-            if board.test_check(board, 1) or VARIANT == 'horde':
+        if board.has_no_moves(chessboard, 1):
+            if board.test_check(chessboard, 1) or VARIANT == 'horde':
                 print('Black wins!')
                 result = -1
             else:
@@ -195,8 +193,8 @@ def parse_args():
     
     parser.add_argument('--num-games', type=int, default=1,
                         help='how many games to play')
-    parser.add_argument('--display-AI-games', action="store_true", default=False,
-                        help='if an AI game displays with the board')
+    parser.add_argument('--display', action="store_true", default=False,
+                        help='whether AI games display with the board')
     parser.add_argument('--cuda', action='store_true', default=False,
                         help='whether or not to use gpu')
     # parser.add_argument('')
@@ -221,7 +219,27 @@ def parse_args():
     return args
 
 def main(args):
-    if args.display or player1=="human" or player2=="human":
+    if args.player1 == "human":
+        agent1 = Human(1,surface)
+    elif args.player1 == "minimax":
+        agent1 = minimax.Minimax(1, args.minimax_depth)
+
+    if args.player2 == "human":
+        agent2 = Human(-1, surface)
+    elif args.player2 == "minimax":
+        agent2 = minimax.Minimax(-1, args.minimax_depth)
+
+    for i in range(args.num_games):
+        play_game(agent1, agent2, surface, args.variant)
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    BOARD_SCALE = args.scale
+    if args.cuda and torch.cuda.is_available():
+        DEVICE = torch.device('cuda')
+
+    if args.display or args.player1=="human" or args.player2=="human":
         board_image = pygame.image.load("images/chessboard.jpg")
         pygame.init()
 
@@ -232,27 +250,4 @@ def main(args):
     else:
         surface = None
 
-    if player1 == "human":
-        agent1 = Human(1,surface)
-    elif player1 == "minimax":
-        agent1 = minimax.Minimax(1, args.minimax_depth)
-
-    if player2 == "human":
-        agent2 = Human(2, surface)
-    elif player2 == "minimax":
-        agent2 = minimax.Minimax(2, args.minimax_depth)
-
-    for i in range(args.num_games):
-        play_game(agent1, agent2, surface, args.variant)
-
-
-if __name__ == "__main__":
-    args = parse_args()
-    BOARD_SCALE = args.scale
-    MAX_DEPTH = args.depth
-    VARIANT = args.variant
-
-    if args.cuda and torch.cuda.is_available():
-        DEVICE = torch.device('cuda')
-
-    main(args.two_player, args.player_side)
+    main(args)

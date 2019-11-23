@@ -4,6 +4,8 @@ Date: November 23, 2019
 Stores functions and constants relating to the chess board.
 '''
 
+import numpy as np
+
 EMPTY=0
 WHITE_PAWN=1
 BLACK_PAWN=2
@@ -25,6 +27,10 @@ EP_ROW_DIGIT = 66
 EP_COL_DIGIT = 67
 INSIG_MOD_N_DIGIT = 68
 INSIG_DIV_N_DIGIT = 69
+
+NUM_PIECES = 13
+
+POWERS = np.array([NUM_PIECES**n for n in range(70)])
 
 def set_board(variant='normal'):
     ''' Represented digitally: each square is a place, counting horizontally
