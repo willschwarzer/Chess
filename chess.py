@@ -40,43 +40,6 @@ INSIG_DIV_N_DIGIT = 69
 # MAX_DEPTH = 1
 # VARIANT = 'normal'
 
-one_dim_vals = np.array([[0.1, 0.2, 0.3, 1, 1, 0.3, 0.2, 0.1]])
-SQUARE_VALS = np.transpose(one_dim_vals) @ one_dim_vals
-# SQUARE_VALS = np.array([[0.1]*8]*2 + [[0.1, 0.2, 0.3, 0.7, 0.7, 0.3, 0.2, 0.1]] + [[0.3, 0.4, 0.7, 1, 1, 0.7, 0.4, 0.3]]*2 + [[0.2]*8] + [[0.1]*8]*2)
-
-MOBILITY_SCALAR = np.array([
-    0,
-    1,
-    -1,
-    2,
-    -2,
-    1,
-    -1,
-    0.3,
-    -0.3,
-    0.15,
-    -0.15,
-    -10,
-    10
-])/5
-
-
-MATERIAL = np.array([
-    0,
-    1,
-    -1,
-    3,
-    -3,
-    3,
-    -3,
-    5,
-    -5,
-    9,
-    -9,
-    1000,
-    -1000
-])
-
 NUM_PIECES = len(MATERIAL)
 POWERS = np.array([NUM_PIECES**n for n in range(70)])
 
