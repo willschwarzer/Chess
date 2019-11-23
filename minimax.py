@@ -1,9 +1,9 @@
 #import chess
-import AI
+import Agent
 import heuristic
 import board
 
-class minimax(AI):
+class minimax(Agent):
 
 	def __init__(self, depth, side):
 		self.depth = depth
