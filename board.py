@@ -480,6 +480,7 @@ def has_no_moves(board, side):
     for row in range(8):
         for col in range(8):
             if get_side(piece_at_square(board, row, col)) == side:
+                # print(get_moves(board, row, col, check_check=True))
                 if get_moves(board, row, col, check_check=True):
                     return False
     return True

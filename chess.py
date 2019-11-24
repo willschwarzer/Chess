@@ -6,13 +6,14 @@ This file mostly handles IO for both display and playing the game
 '''
 
 import argparse
+from collections import defaultdict
 import pygame
-import torch
 import time
+import torch
 import sys
 
-import board
 import agent
+import board
 import minimax
 
 
@@ -86,14 +87,12 @@ def highlight_square(surface, row, col, dark=False):
     rect = pygame.Rect(x0, y0, square_size, square_size)
     surface.blit(highlight_image, rect)
 
-
-
 class Human(agent.Agent):
     def __init__(self,side, surface):
         self.side = side
         self.surface = surface
 
-    def get_move(self,chessboard):
+    def get_move(self,chessboard, pos_counts):
         first_click = True
         while True:
             for event in pygame.event.get():
@@ -125,8 +124,6 @@ class Human(agent.Agent):
                         else:
                             first_click = True
 
-
-
 def wait_for_click():
     click = False
     while True:
@@ -138,60 +135,64 @@ def wait_for_click():
             elif event.type == pygame.MOUSEBUTTONUP and click:
                 return
 
-
-
-
+def get_result(chessboard, pos_counts, side):
+    if board.has_no_moves(chessboard, -side):
+        if board.test_check(chessboard, -side):
+            print('{} wins!'.format('White' if side == 1 else 'Black'))
+            return 1
+        else:
+            print('Stalemate.')
+            return 0
+        # wait for human to click?
+    elif pos_counts[chessboard] == 3:
+        print('Draw by threefold repetition.')
+        return 0
+    return None
 
 def play_game(agent1, agent2, surface, variant):
     ''' Play chess '''
     global last_move
     chessboard = board.set_board(variant=variant)
-    surface.fill([0, 0, 0])
-    draw_board(chessboard, surface)
-    pygame.display.flip()
+    result = None
+    pos_counts = defaultdict(int)
+    if surface:
+        surface.fill([0, 0, 0])
+        draw_board(chessboard, surface)
+        pygame.display.flip()
+    pos_counts[chessboard] += 1
     while True:
-        move = agent1.get_move(chessboard)
+        move = agent1.get_move(chessboard, pos_counts)
         last_move = move
         chessboard = board.make_move(chessboard, *move)
         if surface:
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
-
             pygame.display.flip()
-
         # checkmate checks, etc
-        if board.has_no_moves(chessboard, -1):
-            if board.test_check(chessboard, -1):
-                print('White wins!')
-                result = 1
-            else:
-                print('Stalemate.')
-                result = 0
-            # wait for human to click?
+        pos_counts[chessboard] += 1
+        result = get_result(chessboard, pos_counts, 1)
+        if result is not None:
             if type(agent1) == Human or type(agent2) == Human:
-                print("waiting for human")
+                print("Click to continue...")
                 wait_for_click()
             return result
-        move = agent2.get_move(chessboard)
+
+        move = agent2.get_move(chessboard, pos_counts)
         last_move = move
         chessboard = board.make_move(chessboard, *move)
         if surface:
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
-
             pygame.display.flip()
-        if board.has_no_moves(chessboard, 1):
-            if board.test_check(chessboard, 1) or VARIANT == 'horde':
-                print('Black wins!')
-                result = -1
-            else:
-                print('Stalemate.')
-                result = 0
+        result = get_result(chessboard, pos_counts, -1)
+        if result is not None:
             if type(agent1) == Human or type(agent2) == Human:
-                print("waiting for human")
+                print("Click to continue...")
                 wait_for_click()
             return result
-
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                sys.exit()
 
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -201,7 +202,7 @@ def parse_args():
                         help='who player 1 is (white)')
     parser.add_argument('--player2', type=str, default='minimax',
                         help='who player 2 is (black)')
-    parser.add_argument('--minimax-depth', type=int, default=2,
+    parser.add_argument('--minimax-depth', type=int, nargs='+', default=2,
                         help='minimax max AI search depth')
     parser.add_argument('--scale', type=float, default=1,
                         help='scaling factor for the board')
@@ -216,6 +217,8 @@ def parse_args():
                         help='whether or not to use gpu')
     # parser.add_argument('')
     args = parser.parse_args()
+    if len(args.minimax_depth) == 1:
+        args.minimax_depth = args.minimax_depth * 2
 
     # if args.self_play != None:
     #     if len(args.self_play) == 1:
@@ -239,12 +242,12 @@ def main(args):
     if args.player1 == "human":
         agent1 = Human(1,surface)
     elif args.player1 == "minimax":
-        agent1 = minimax.Minimax(1, args.minimax_depth)
+        agent1 = minimax.Minimax(1, args.minimax_depth[0])
 
     if args.player2 == "human":
         agent2 = Human(-1, surface)
     elif args.player2 == "minimax":
-        agent2 = minimax.Minimax(-1, args.minimax_depth)
+        agent2 = minimax.Minimax(-1, args.minimax_depth[1])
 
     for i in range(args.num_games):
         play_game(agent1, agent2, surface, args.variant)

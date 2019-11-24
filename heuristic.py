@@ -56,30 +56,25 @@ def evaluate(chessboard, intricate=False):
                     # king safety
                     if row == 7:
                         if col == 1 or col == 6:
-                            piece_total = 1
-                        elif col == 2:
-                            piece_total = 0.75
-                    else: 
-                        piece_total = 0.5
+                            piece_total += 1
+                    else:
+                        piece_total -= 1
                 elif piece == 12:
                     # king safety
-                    if row == 1:
+                    if row == 0:
                         if col == 1 or col == 6:
-                            piece_total += 1
-                        elif col == 2:
-                            piece_total += 0.75
+                            piece_total -= 1
                     else: 
-                        piece_total = -1
+                        piece_total += 1
                 else:
                     side = board.get_side(piece)
+                    moves = board.get_moves(chessboard, row, col, check_threat=True)
                     if intricate:
                         # Value squares close to the enemy king
                         if side == 1:
                             enemy_king_row, enemy_king_col = king_locs[1]
                         else:
                             enemy_king_row, enemy_king_col = king_locs[0]
-                    moves = board.get_moves(chessboard, row, col, check_threat=True)
-                    if intricate:
                         for move in moves:
                             king_proximity = (move[0] - enemy_king_row)**2 + (move[1] - enemy_king_col)**2
                             # 7*7 + 7*7 = 98
