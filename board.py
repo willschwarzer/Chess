@@ -25,8 +25,6 @@ WHITE_CASTLE_DIGIT = 64
 BLACK_CASTLE_DIGIT = 65
 EP_ROW_DIGIT = 66
 EP_COL_DIGIT = 67
-INSIG_MOD_N_DIGIT = 68
-INSIG_DIV_N_DIGIT = 69
 
 NUM_PIECES = 13
 
@@ -39,12 +37,8 @@ def set_board(variant='normal'):
     (0 for neither side, 1 for kingside only, 2 for queenside only, 3 for both)
     66th and 67th digits are row and col, respectively, for the square with
     legal en passant, if any; they're set to 8 if there is no such square
-    68th and 69th digits are the number of turns since the last significant
-    move (as usual, defined as a capture or pawn push)
     If n is number of pieces:
-    board = num_insignificant_moves/n * n^69 + num_insignificant_moves % n *n^68
-    +
-    ep_col * n^67 + ep_col * n^66
+    board = ep_col * n^67 + ep_col * n^66
     +
     black_castle_rights * n^65 + white_castle_rights * n^64
     +
@@ -138,17 +132,7 @@ def set_board(variant='normal'):
     board += 8*POWERS[EP_ROW_DIGIT]
     place = 67
     board += 8*POWERS[EP_COL_DIGIT]
-    # num_insignificant_moves starts at 0, i.e. is 0 / n and 0 % n
     return board
-
-def reset_insignificant_moves(board):
-    return board % POWERS[INSIG_MOD_N_DIGIT]
-
-def increment_insignificant_moves(board):
-    return board + POWERS[INSIG_MOD_N_DIGIT]
-
-def get_insignificant_moves(board):
-    return board // POWERS[INSIG_MOD_N_DIGIT]
 
 def get_ep_square(board):
     row = (board // POWERS[EP_ROW_DIGIT]) % NUM_PIECES

@@ -2,20 +2,25 @@ import board
 import numpy as np
 
 one_dim_vals = np.array([[0.1, 0.2, 0.3, 1, 1, 0.3, 0.2, 0.1]])
-SQUARE_VALS = np.transpose(one_dim_vals) @ one_dim_vals
+square_vals = np.transpose(one_dim_vals) @ one_dim_vals
+WHITE_SQUARE_VALS = np.copy(square_vals)
+BLACK_SQUARE_VALS = np.copy(square_vals)
+for i in range(8):
+    WHITE_SQUARE_VALS[i] += (0.5-i/10)
+    BLACK_SQUARE_VALS[7-i] += (0.5-i/10)
 
 MOBILITY_SCALAR = np.array([
     0,
     1,
     -1,
-    2,
-    -2,
+    1,
+    -1,
     1,
     -1,
     0.3,
     -0.3,
-    0.15,
-    -0.15,
+    0.3,
+    -0.3,
     -10,
     10
 ])/5
@@ -37,7 +42,7 @@ MATERIAL = np.array([
     -1000
 ])
 
-def evaluate(chessboard, intricate=False):
+def evaluate(chessboard, disp=False, intricate=False):
     '''Returns a value indicating how favorable the board is for each player. Smaller (more negative) scores favor Black, whereas larger scores favor White.'''
     # C = 0.1
     total = 0
@@ -52,6 +57,7 @@ def evaluate(chessboard, intricate=False):
             piece = board.piece_at_square(chessboard, row, col)
             if piece != 0:
                 piece_total = 0
+                # King safety
                 if piece == 11:
                     # king safety
                     if row == 7:
@@ -68,7 +74,7 @@ def evaluate(chessboard, intricate=False):
                         piece_total += 1
                 else:
                     side = board.get_side(piece)
-                    moves = board.get_moves(chessboard, row, col, check_threat=True)
+                    moves = board.get_moves(chessboard, row, col, check_threat=True, check_check=True)
                     if intricate:
                         # Value squares close to the enemy king
                         if side == 1:
@@ -82,10 +88,15 @@ def evaluate(chessboard, intricate=False):
                             piece_total += SQUARE_VALS[move]*king_proximity
                     else:
                         for move in moves:
-                            piece_total += SQUARE_VALS[move]
+                            if side == 1:
+                                piece_total += WHITE_SQUARE_VALS[move]
+                            elif side == -1:
+                                piece_total += BLACK_SQUARE_VALS[move]
                     # square root to encourage developing all pieces
                     # piece_total = piece_total**(1/3)
                     piece_total *= MOBILITY_SCALAR[piece]
+                    if disp:
+                        print(piece, 'has mobility', piece_total)
                 piece_total += MATERIAL[piece]
                 total += piece_total# + C*len(moves)
     return total

@@ -14,6 +14,7 @@ import sys
 
 import agent
 import board
+import heuristic
 import minimax
 
 
@@ -140,6 +141,9 @@ def get_result(chessboard, pos_counts, side):
         if board.test_check(chessboard, -side):
             print('{} wins!'.format('White' if side == 1 else 'Black'))
             return 1
+        elif side == -1 and args.variant == 'horde':
+            print('Black wins!')
+            return -1
         else:
             print('Stalemate.')
             return 0
@@ -147,9 +151,12 @@ def get_result(chessboard, pos_counts, side):
     elif pos_counts[chessboard] == 3:
         print('Draw by threefold repetition.')
         return 0
+    elif sum(pos_counts.values()) >= 200:
+        print('Draw by being a really long game.')
+        return 0
     return None
 
-def play_game(agent1, agent2, surface, variant):
+def play_game(agent1, agent2, surface, variant, wait_between):
     ''' Play chess '''
     global last_move
     chessboard = board.set_board(variant=variant)
@@ -172,7 +179,7 @@ def play_game(agent1, agent2, surface, variant):
         pos_counts[chessboard] += 1
         result = get_result(chessboard, pos_counts, 1)
         if result is not None:
-            if type(agent1) == Human or type(agent2) == Human:
+            if wait_between:
                 print("Click to continue...")
                 wait_for_click()
             return result
@@ -186,13 +193,14 @@ def play_game(agent1, agent2, surface, variant):
             pygame.display.flip()
         result = get_result(chessboard, pos_counts, -1)
         if result is not None:
-            if type(agent1) == Human or type(agent2) == Human:
+            if wait_between:
                 print("Click to continue...")
                 wait_for_click()
             return result
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                sys.exit()
+        if surface:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    sys.exit()
 
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -215,10 +223,14 @@ def parse_args():
                         help='whether AI games display with the board')
     parser.add_argument('--cuda', action='store_true', default=False,
                         help='whether or not to use gpu')
+    parser.add_argument('--wait-between', action='store_true', default=False,
+                        help='whether or not to wait for a click between games')
     # parser.add_argument('')
     args = parser.parse_args()
     if len(args.minimax_depth) == 1:
         args.minimax_depth = args.minimax_depth * 2
+    if args.player1 == 'human' or args.player2 =='human':
+        args.wait_between = True
 
     # if args.self_play != None:
     #     if len(args.self_play) == 1:
@@ -242,15 +254,15 @@ def main(args):
     if args.player1 == "human":
         agent1 = Human(1,surface)
     elif args.player1 == "minimax":
-        agent1 = minimax.Minimax(1, args.minimax_depth[0])
+        agent1 = minimax.Minimax(1, args.minimax_depth[0], args.variant)
 
     if args.player2 == "human":
         agent2 = Human(-1, surface)
     elif args.player2 == "minimax":
-        agent2 = minimax.Minimax(-1, args.minimax_depth[1])
+        agent2 = minimax.Minimax(-1, args.minimax_depth[1], args.variant)
 
     for i in range(args.num_games):
-        play_game(agent1, agent2, surface, args.variant)
+        play_game(agent1, agent2, surface, args.variant, args.wait_between)
 
 
 if __name__ == "__main__":

@@ -7,15 +7,16 @@ import heuristic
 from time import time
 class Minimax(agent.Agent):
 
-    def __init__(self, side, depth):
+    def __init__(self, side, depth, variant):
         self.depth = depth
         self.side = side
+        self.variant = variant
 
     def get_move(self,chessboard, pos_counts):
-        then = time()
+        # then = time()
         result = self.alpha_beta(chessboard, pos_counts, 0, -100000, 100000, self.side)[0]
-        now = time()-then
-        print("get_move took " + str(now) + " seconds")
+        # now = time()-then
+        # print("get_move took " + str(now) + " seconds")
         return result
 
     def order_moves_naive(self, chessboard, side):
@@ -28,23 +29,25 @@ class Minimax(agent.Agent):
 
     def alpha_beta(self, chessboard, pos_counts, depth, alpha, beta, side):
         '''Given a board and a move, returns an evaluation for that move by recursing over every possible move in each state until the depth limit is reached, then using the evaluate() function and passing the values back up through minimax with alpha-beta pruning.'''
-        if not board.find_king(chessboard, 1):
+        if not board.find_king(chessboard, 1) and self.variant != 'horde':
             return (None, -10000)
         elif not board.find_king(chessboard, -1):
             return (None, 10000)
         elif pos_counts[chessboard] == 3:
             return (None, 0)
-        elif board.has_no_moves(chessboard, 1):
-            if board.test_check(chessboard, 1):
-                return (None, -10000)
-            else:
-                return (None, 0)
-        elif board.has_no_moves(chessboard, -1):
-            if board.test_check(chessboard, -1):
-                return (None, 10000)
-            else:
-                return (None, 0)
-        elif depth == self.depth:
+        elif side == 1:
+            if board.has_no_moves(chessboard, 1):
+                if board.test_check(chessboard, 1) or self.variant == 'horde':
+                    return (None, -10000)
+                else:
+                    return (None, 0)
+        elif side == -1:
+            if board.has_no_moves(chessboard, -1):
+                if board.test_check(chessboard, -1):
+                    return (None, 10000)
+                else:
+                    return (None, 0)
+        if depth == self.depth:
             value = heuristic.evaluate(chessboard)
             return (None, value)
         ordered_moves = self.order_moves_naive(chessboard, side)
@@ -54,7 +57,7 @@ class Minimax(agent.Agent):
                 new_board = board.make_move(chessboard, move[0], move[1])
                 pos_counts[new_board] += 1
                 _, move_value = self.alpha_beta(new_board, pos_counts, depth+1, alpha, beta, -1)
-                noise = np.random.normal(scale=0.1)
+                noise = np.random.normal(scale=0.05)
                 move_value += noise
                 pos_counts[new_board] -= 1
                 if move_value > best_move[1]:
@@ -69,7 +72,7 @@ class Minimax(agent.Agent):
                 new_board = board.make_move(chessboard, move[0], move[1])
                 pos_counts[new_board] += 1
                 _, move_value = self.alpha_beta(new_board, pos_counts, depth+1, alpha, beta, 1)
-                noise = np.random.normal(scale=0.1)
+                noise = np.random.normal(scale=0.05)
                 move_value += noise
                 pos_counts[new_board] -= 1
                 if move_value < best_move[1]:
