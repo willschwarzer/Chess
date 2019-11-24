@@ -2,7 +2,7 @@
 import agent
 import heuristic
 import board
-
+from time import time
 class Minimax(agent.Agent):
 
     def __init__(self, side, depth):
@@ -10,11 +10,16 @@ class Minimax(agent.Agent):
         self.side = side
 
     def get_move(self,chessboard):
-        return self.alpha_beta(chessboard, 0, -100000, 100000, self.side)[0]
+        then = time()
+        result = self.alpha_beta(chessboard, 0, -100000, 100000, self.side)[0]
+        now = time()-then
+        print("get_move took " + str(now) + " seconds")
+        return result
 
     def order_moves_naive(self, chessboard, side):
         '''Given a board and a side, naively orders the set of all possible moves based solely on whether or not they involve the capture of a piece, and if so, how much the piece is worth.'''
         moves = board.get_all_moves(chessboard, side)
+        
         moves_and_values = [(move, heuristic.evaluate(board.make_move(chessboard, move[0], move[1]))) for move in moves]
         moves_and_values.sort(reverse=(side==1), key=lambda x: x[1])
         return [tup[0] for tup in moves_and_values]
@@ -40,7 +45,7 @@ class Minimax(agent.Agent):
             value = heuristic.evaluate(chessboard)
             return (None, value)
         ordered_moves = self.order_moves_naive(chessboard, side)
-            
+
         if side == 1:
             best_move = (None, -100000)
             for move in ordered_moves:

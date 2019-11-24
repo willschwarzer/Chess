@@ -1,4 +1,4 @@
-''' 
+'''
 Authors: Will Schwarzer
 Date: November 23, 2019
 Stores functions and constants relating to the chess board.
@@ -43,7 +43,7 @@ def set_board(variant='normal'):
     move (as usual, defined as a capture or pawn push)
     If n is number of pieces:
     board = num_insignificant_moves/n * n^69 + num_insignificant_moves % n *n^68
-    + 
+    +
     ep_col * n^67 + ep_col * n^66
     +
     black_castle_rights * n^65 + white_castle_rights * n^64
@@ -490,7 +490,7 @@ def get_all_moves(board, side):
     for row in range(8):
         for col in range(8):
             if get_side(piece_at_square(board, row, col)) == side:
-                for move in get_moves(board, row, col):
+                for move in get_moves(board, row, col, False, True):
                     moves.append(((row, col), move))
     return moves
 
@@ -500,4 +500,3 @@ def make_AI_move(board, side, AI_agent):
     #move = alpha_beta(board, 0, -100000, 100000, side)[0]
     move = AI_agent.make_move(board, side)
     return make_move(board, move[0], move[1])
-

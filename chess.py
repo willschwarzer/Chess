@@ -34,17 +34,23 @@ PIECE_IMGS = [
 
 BOARD_IMG = pygame.image.load("images/chessboard3.png")
 HIGHLIGHT_IMG = pygame.image.load("images/highlight.png")
+DARK_HIGHLIGHT_IMG = pygame.image.load("images/highlight2.png")
 BOARD_SIZE = 598
-BOARD_MARGIN = 15
-SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8
+BOARD_MARGIN = 18 # was 15
+SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8.0
+last_move = None
 # Board scale declared in __main__
 
 def draw_board(chessboard, surface):
     ''' Draws all pieces on a given board'''
+    global last_move
     # Draw board
     board_img = pygame.transform.scale(BOARD_IMG,(int(BOARD_SIZE*BOARD_SCALE),int(BOARD_SIZE*BOARD_SCALE)))
     rect = pygame.Rect(0, 0, surface.get_width(), surface.get_width())
     surface.blit(board_img, rect)
+    if last_move:
+        highlight_square(surface, *last_move[0], True)
+        highlight_square(surface, *last_move[1], True)
 
     # Draw pieces
     for row in range(8):
@@ -69,12 +75,14 @@ def print_board(chessboard):
             print(board.piece_at_square(chessboard, row, col), end=' ')
         print()
 
-def highlight_square(surface, row, col):
-    square_size = int(SQUARE_SIZE*BOARD_SCALE)
-    board_margin = int(BOARD_MARGIN*BOARD_SCALE)
-    highlight_image = pygame.transform.scale(HIGHLIGHT_IMG, (square_size,)*2)
-    x0 = (board_margin + col*square_size)
-    y0 = (board_margin + row*square_size)
+def highlight_square(surface, row, col, dark=False):
+    square_size = (SQUARE_SIZE*BOARD_SCALE)
+    board_margin = (BOARD_MARGIN*BOARD_SCALE)
+    highlight_image = pygame.transform.scale(HIGHLIGHT_IMG, (int(square_size),)*2)
+    if dark:
+        highlight_image = pygame.transform.scale(DARK_HIGHLIGHT_IMG, (int(square_size),)*2)
+    x0 = int(board_margin + col*square_size) + int(2*col/8 + 1)
+    y0 = int(board_margin + row*square_size) + int(2*col/8 + 1)
     rect = pygame.Rect(x0, y0, square_size, square_size)
     surface.blit(highlight_image, rect)
 
@@ -100,7 +108,7 @@ class Human(agent.Agent):
                     piece = board.piece_at_square(chessboard, row, col)
                     if first_click:
                         if piece != None and board.get_side(piece) == self.side:
-                            moves = board.get_moves(chessboard, row, col)
+                            moves = board.get_moves(chessboard, row, col, False, True)
                             #highlight available moves
                             for move in moves:
                                 highlight_square(surface, *move)
@@ -108,7 +116,7 @@ class Human(agent.Agent):
                             first_click_square = (row, col)
                             first_click = False
                             continue #restart the event code, this time getting the move-determining (or selection-cancelling) click
-                            
+
                     if not first_click:
                         draw_board(chessboard, surface)
                         pygame.display.flip()
@@ -120,11 +128,14 @@ class Human(agent.Agent):
 
 
 def wait_for_click():
+    click = False
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
-            elif event.type == pygame.MOUSEBUTTONUP:
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                click = True
+            elif event.type == pygame.MOUSEBUTTONUP and click:
                 return
 
 
@@ -133,16 +144,19 @@ def wait_for_click():
 
 def play_game(agent1, agent2, surface, variant):
     ''' Play chess '''
+    global last_move
     chessboard = board.set_board(variant=variant)
     surface.fill([0, 0, 0])
     draw_board(chessboard, surface)
     pygame.display.flip()
     while True:
         move = agent1.get_move(chessboard)
+        last_move = move
         chessboard = board.make_move(chessboard, *move)
         if surface:
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
+
             pygame.display.flip()
 
         # checkmate checks, etc
@@ -155,14 +169,16 @@ def play_game(agent1, agent2, surface, variant):
                 result = 0
             # wait for human to click?
             if type(agent1) == Human or type(agent2) == Human:
+                print("waiting for human")
                 wait_for_click()
             return result
-
         move = agent2.get_move(chessboard)
+        last_move = move
         chessboard = board.make_move(chessboard, *move)
         if surface:
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
+
             pygame.display.flip()
         if board.has_no_moves(chessboard, 1):
             if board.test_check(chessboard, 1) or VARIANT == 'horde':
@@ -172,10 +188,11 @@ def play_game(agent1, agent2, surface, variant):
                 print('Stalemate.')
                 result = 0
             if type(agent1) == Human or type(agent2) == Human:
+                print("waiting for human")
                 wait_for_click()
             return result
-                    
-                    
+
+
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--variant', type=str, default='normal',
@@ -190,7 +207,7 @@ def parse_args():
                         help='scaling factor for the board')
     parser.add_argument('--alternate-sides', action="store_true", default=False,
                         help='alternate sides (color) every other game')
-    
+
     parser.add_argument('--num-games', type=int, default=1,
                         help='how many games to play')
     parser.add_argument('--display', action="store_true", default=False,
