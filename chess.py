@@ -152,6 +152,10 @@ def play_game(agent1, agent2, surface, variant, wait_between):
         move = agent1.get_move(chessboard, pos_counts)
         last_move = move
         chessboard = board.make_move(chessboard, *move)
+        if type(agent1) == MCTS:
+            agent1.add_move(move)
+        if type(agent2) == MCTS:
+            agent2.add_move(move)
         if surface:
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
@@ -168,6 +172,10 @@ def play_game(agent1, agent2, surface, variant, wait_between):
         move = agent2.get_move(chessboard, pos_counts)
         last_move = move
         chessboard = board.make_move(chessboard, *move)
+        if type(agent1) == MCTS:
+            agent1.add_move(move)
+        if type(agent2) == MCTS:
+            agent2.add_move(move)
         if surface:
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)

@@ -486,7 +486,7 @@ def make_AI_move(board, side, AI_agent):
     move = AI_agent.make_move(board, side)
     return make_move(board, move[0], move[1])
 
-def get_result(chessboard, pos_counts, variant, side):
+def get_result(chessboard, pos_counts, variant, side, print_result=True):
     if board.has_no_moves(chessboard, -side):
         if board.test_check(chessboard, -side):
             print('{} wins!'.format('White' if side == 1 else 'Black'))
