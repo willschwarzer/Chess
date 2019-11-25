@@ -306,13 +306,137 @@ def find_king(board, side):
 
 def test_check(board, side):
     king_square = find_king(board, side)
-    for row in range(8):
-        for col in range(8):
-            piece = piece_at_square(board, row, col)
-            if piece != 0 and get_side(piece) != side:
-                if king_square in get_moves(board, row, col, True):
-                    return True
-    return False
+    # for row in range(8):
+    #     for col in range(8):
+    #         piece = piece_at_square(board, row, col)
+    #         if piece != 0 and get_side(piece) != side:
+    #             if king_square in get_moves(board, row, col, True):
+    #                 return True
+    # return False
+
+    # Test upper left diag
+    row = king_square[0]-1
+    col = king_square[1]-1
+    while piece_at_square(board, row, col) == 0:
+        col -= 1
+        row -= 1
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_BISHOP or piece == BLACK_QUEEN:
+            return True
+    else:
+        if piece == WHITE_BISHOP or piece == WHITE_QUEEN:
+            return True
+    # Test upper right diag
+    row = king_square[0]-1
+    col = king_square[1]+1
+    while piece_at_square(board, row, col) == 0:
+        col += 1
+        row -= 1
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_BISHOP or piece == BLACK_QUEEN:
+            return True
+    else:
+        if piece == WHITE_BISHOP or piece == WHITE_QUEEN:
+            return True
+    # Test lower left diag
+    row = king_square[0]+1
+    col = king_square[1]-1
+    while piece_at_square(board, row, col) == 0:
+        col -= 1
+        row += 1
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_BISHOP or piece == BLACK_QUEEN:
+            return True
+    else:
+        if piece == WHITE_BISHOP or piece == WHITE_QUEEN:
+            return True
+    # Test lower left diag
+    row = king_square[0]+1
+    col = king_square[1]+1
+    while piece_at_square(board, row, col) == 0:
+        col += 1
+        row += 1
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_BISHOP or piece == BLACK_QUEEN:
+            return True
+    else:
+        if piece == WHITE_BISHOP or piece == WHITE_QUEEN:
+            return True
+
+    # Test col above
+    row = king_square[0]-1
+    col = king_square[1]
+    while piece_at_square(board, row, col) == 0:
+        row -= 1
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_ROOK or piece == BLACK_QUEEN:
+            return True
+    else:
+        if piece == WHITE_ROOK or piece == WHITE_QUEEN:
+            return True
+    # Test col below
+    row = king_square[0]+1
+    col = king_square[1]
+    while piece_at_square(board, row, col) == 0:
+        row += 1
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_ROOK or piece == BLACK_QUEEN:
+            return True
+    else:
+        if piece == WHITE_ROOK or piece == WHITE_QUEEN:
+            return True
+    # Test row to the left
+    row = king_square[0]
+    col = king_square[1]-1
+    while piece_at_square(board, row, col) == 0:
+        col -= 1
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_ROOK or piece == BLACK_QUEEN:
+            return True
+    else:
+        if piece == WHITE_ROOK or piece == WHITE_QUEEN:
+            return True
+    # Test row to the right
+    row = king_square[0]
+    col = king_square[1]+1
+    while piece_at_square(board, row, col) == 0:
+        col += 1
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_ROOK or piece == BLACK_QUEEN:
+            return True
+    else:
+        if piece == WHITE_ROOK or piece == WHITE_QUEEN:
+            return True
+    row = king_square[0]
+    col = king_square[1]
+    knight_squares = [move[1] for move in get_moves_knight(board, row, col) if in_bounds(*(move[1]))]
+    if side == 1:
+        for square in knight_squares:
+            if piece_at_square(board, *square) == BLACK_KNIGHT:
+                return True
+    else:
+        for square in knight_squares:
+            if piece_at_square(board, *square) == WHITE_KNIGHT:
+                return True
+    if side == 1:
+        if piece_at_square(board, row-1, col-1) == BLACK_PAWN:
+            return True
+        elif piece_at_square(board, row-1, col+1) == BLACK_PAWN:
+            return True
+    else:
+        if piece_at_square(board, row+1, col-1) == WHITE_PAWN:
+            return True
+        elif piece_at_square(board, row+1, col+1) == WHITE_PAWN:
+            return True
+
 
 def in_bounds(row, col):
     return (0 <= row <= 7) and (0 <= col <= 7)
