@@ -213,6 +213,8 @@ def parse_args():
                         help='who player 2 is (black)')
     parser.add_argument('--scale', type=float, default=1,
                         help='scaling factor for the board')
+    parser.add_argument('--ucb-const', type=float, nargs='+', default=[0.5],
+                        help='UCB constant for MCTS')
     parser.add_argument('--variant', type=str, default='normal',
                         help='type of chess to play')
     parser.add_argument('--wait-between', action='store_true', default=False,
@@ -231,6 +233,8 @@ def parse_args():
         args.mcts_rollouts = args.mcts_rollouts * 2
     if len(args.mcts_depth) == 1:
         args.mcts_depth = args.mcts_depth * 2
+    if len(args.ucb_const) == 1:
+        args.ucb_const = args.ucb_const * 2
 
     return args
 
@@ -242,7 +246,7 @@ def main(args):
     elif args.player1 == "mcts":
         agent1 = MCTS(1, args.mcts_depth[0], args.mcts_rollouts[0],\
          args.variant, args.heuristic_rollouts[0], \
-         args.input_file[0] if args.input_file else None, args.output_file[0] if args.output_file else None)
+         args.input_file[0] if args.input_file else None, args.output_file[0] if args.output_file else None, args.ucb_const[0])
 
     if args.player2 == "human":
         agent2 = Human(-1, surface)
@@ -251,7 +255,7 @@ def main(args):
     elif args.player2 == "mcts":
         agent2 = MCTS(-1, args.mcts_depth[1], args.mcts_rollouts[1],\
          args.variant, args.heuristic_rollouts[1], args.input_file[1] if len(args.input_file) == 2 else None,\
-          args.output_file[1] if len(args.output_file) == 2 else None)
+          args.output_file[1] if len(args.output_file) == 2 else None, args.ucb_const[1])
 
     for i in range(args.num_games):
         play_game(agent1, agent2, surface, args.variant, args.wait_between)

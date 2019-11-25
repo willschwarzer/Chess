@@ -1,3 +1,4 @@
+import math
 import os
 import pickle
 import random
@@ -8,19 +9,20 @@ import agent
 import board
 import heuristic
 class MCTS(agent.Agent):
-    def __init__(self, side, max_depth, n_rollouts, variant, use_heuristic, input_path, output_path):
+    def __init__(self, side, max_depth, n_rollouts, variant, use_heuristic, input_path, output_path, ucb_const):
         self.side = side
         self.max_depth = max_depth
         self.n_rollouts = n_rollouts
         self.variant = variant
         self.use_heuristic = use_heuristic
+        self.ucb_const = ucb_const
         self.input_path = input_path
         self.output_path = output_path
         self.random_moves_list = []
         if input_path:
             self.load_root()
         else:
-            self.root = Node(board.set_board(variant), None)
+            self.root = Node(board.set_board(variant), None, self.ucb_const)
             
         self.cur = self.root
 
@@ -52,22 +54,22 @@ class MCTS(agent.Agent):
 
 
     def do_rollouts(self, pos_counts):
-        side = self.side
         for i in range(self.n_rollouts):
+            side = self.side
             cur = self.cur
             cur.visits += 1
             pos_counts[cur.chessboard] += 1
             while len(cur.children) == len(board.get_all_moves(cur.chessboard, self.side))\
-             and not (board.get_result(cur.chessboard, pos_counts, self.variant, self.side) is None):
+             and board.get_result(cur.chessboard, pos_counts, self.variant, self.side, False) is None:
                 best_child = list(cur.children.values())[0]
                 for child in list(cur.children.values())[1:]:
-                    if side*(child.UCB_weight()-bestChild.UCB_weight()) > 0:
+                    if side*(child.UCB_weight(-side)-best_child.UCB_weight(-side)) > 0:
                         best_child = child
                 cur = best_child
                 side *= -1
                 cur.visits += 1
                 pos_counts[cur.chessboard] += 1
-            if board.get_result(cur.chessboard, pos_counts, self.variant, self.side) is not None:
+            if board.get_result(cur.chessboard, pos_counts, self.variant, side, False) is not None:
                 continue
             for move in board.get_all_moves(cur.chessboard, side):
                 if cur.add_move(move):
@@ -101,8 +103,6 @@ class MCTS(agent.Agent):
             move = self.order_moves_naive(chessboard, side)[0] 
         else:
             moves = board.get_all_moves(chessboard, side)
-            if not moves:
-                breakpoint()
             random.shuffle(moves)
             move = moves[0]
         # if board.piece_at_square(chessboard, *move[0]) == 11:
@@ -133,13 +133,14 @@ class MCTS(agent.Agent):
 class Node(object):
     """Node used in MCTS"""
     
-    def __init__(self, chessboard, parent_node):
+    def __init__(self, chessboard, parent_node, ucb_const):
         """Constructor for a new node representing game state
         state. parent_node is the Node that is the parent of this
         one in the MCTS tree. """
         self.chessboard = chessboard
         self.parent = parent_node
         self.children = {} # maps moves (keys) to Nodes (values); if you use it differently, you must also change addMove
+        self.ucb_const = ucb_const
         self.visits = 0
         self.value = float("nan")
         # Note: you may add additional fields if needed
@@ -151,7 +152,7 @@ class Node(object):
         """
         if move not in self.children:
             chessboard = board.make_move(self.chessboard, move[0], move[1])
-            self.children[move] = Node(chessboard, self)
+            self.children[move] = Node(chessboard, self, self.ucb_const)
             return True
         return False
     
@@ -182,5 +183,5 @@ class Node(object):
         to its weight."""
         if self.parent is None:
             raise Exception("no")
-        explore_val = UCB_CONST * math.sqrt(math.log(self.parent.visits)/self.visits) * ((-1) if side == 1 else 1)
+        explore_val = self.ucb_const * math.sqrt(math.log(self.parent.visits)/self.visits) * -side
         return self.value + explore_val
