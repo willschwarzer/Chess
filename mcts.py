@@ -60,7 +60,10 @@ class MCTS(agent.Agent):
             cur.visits += 1
             pos_counts[cur.chessboard] += 1
             while len(cur.children) == len(board.get_all_moves(cur.chessboard, self.side))\
-             and board.get_result(cur.chessboard, pos_counts, self.variant, self.side, False) is None:
+             and board.get_result(cur.chessboard, pos_counts, self.variant, self.side, False) is None\
+             and board.get_result(cur.chessboard, pos_counts, self.variant, -self.side, False) is None:
+                if len(cur.children) == 0:
+                    breakpoint()
                 best_child = list(cur.children.values())[0]
                 for child in list(cur.children.values())[1:]:
                     if side*(child.UCB_weight(-side)-best_child.UCB_weight(-side)) > 0:
@@ -69,13 +72,16 @@ class MCTS(agent.Agent):
                 side *= -1
                 cur.visits += 1
                 pos_counts[cur.chessboard] += 1
-            if board.get_result(cur.chessboard, pos_counts, self.variant, side, False) is not None:
+            if board.get_result(cur.chessboard, pos_counts, self.variant, side, False) is not None \
+            and board.get_result(cur.chessboard, pos_counts, self.variant, -side, False) is not None:
                 continue
             moves = board.get_all_moves(cur.chessboard, side)
             random.shuffle(moves)
             for move in moves:
                 if cur.add_move(move):
                     break
+            if type(cur.children) == tuple:
+                breakpoint()
             expanded = cur.children[move]
             expanded.visits += 1
             outcome = self.random_to_end(expanded.chessboard, pos_counts, -side, 0)
