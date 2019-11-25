@@ -232,6 +232,10 @@ def parse_args():
         args.wait_between = True
     if len(args.input_file) == 1:
         args.input_file = args.input_file * 2
+    if len(args.heuristic_rollouts) == 1:
+        args.heuristic_rollouts = args.heuristic_rollouts * 2
+    if len(args.mcts_rollouts) == 1:
+        args.mcts_rollouts = args.mcts_rollouts * 2
 
     return args
 
@@ -241,8 +245,8 @@ def main(args):
     elif args.player1 == "minimax":
         agent1 = Minimax(1, args.minimax_depth[0], args.variant)
     elif args.player1 == "mcts":
-        agent1 = MCTS(1, args.mcts_depth[0], args.heuristic_rollouts[0],\
-         args.variant, heuristic.evaluate, \
+        agent1 = MCTS(1, args.mcts_depth[0], args.mcts_rollouts[0],\
+         args.variant, args.heuristic_rollouts[0], \
          input_file[0] if input_file else None, output_file[0] if output_file else None)
 
     if args.player2 == "human":
@@ -250,8 +254,8 @@ def main(args):
     elif args.player2 == "minimax":
         agent2 = Minimax(-1, args.minimax_depth[1], args.variant)
     elif args.player2 == "mcts":
-        agent2 = MCTS(-1, args.mcts_depth[1], args.heuristic_rollouts[1],\
-         args.variant, heuristic.evaluate,input_file[1] if len(input_file) == 2 else None,\
+        agent2 = MCTS(-1, args.mcts_depth[1], args.mcts_rollouts[1],\
+         args.variant, args.heuristic_rollouts[1], input_file[1] if len(input_file) == 2 else None,\
           output_file[1] if len(output_file) == 2 else None)
 
     for i in range(args.num_games):
