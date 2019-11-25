@@ -204,9 +204,9 @@ def parse_args():
                         help='whether or not to use heuristic to guide rollouts')
     parser.add_argument('--input-file', type=str, nargs='+', default=[],
                         help='which (pickle) file to read in the AI from')
-    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[2,2],
+    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[2],
                         help='MCTS max AI search depth (0 for unlimited)')
-    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[2,2],
+    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[2],
                         help='number of MCTS rollouts')
     parser.add_argument('--minimax-depth', type=int, nargs='+', default=2,
                         help='minimax max AI search depth')
@@ -230,6 +230,8 @@ def parse_args():
         args.minimax_depth = args.minimax_depth * 2
     if args.player1 == 'human' or args.player2 =='human':
         args.wait_between = True
+    if len(args.input_file) == 1:
+        args.input_file = args.input_file * 2
 
     return args
 
