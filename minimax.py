@@ -29,25 +29,30 @@ class Minimax(agent.Agent):
 
     def alpha_beta(self, chessboard, pos_counts, depth, alpha, beta, side):
         '''Given a board and a move, returns an evaluation for that move by recursing over every possible move in each state until the depth limit is reached, then using the evaluate() function and passing the values back up through minimax with alpha-beta pruning.'''
-        if not board.find_king(chessboard, 1) and self.variant != 'horde':
-            return (None, -10000)
-        elif not board.find_king(chessboard, -1):
-            return (None, 10000)
-        elif pos_counts[chessboard] == 3:
-            return (None, 0)
-        elif side == 1:
-            if board.has_no_moves(chessboard, 1):
-                if board.test_check(chessboard, 1) or self.variant == 'horde':
-                    return (None, -10000)
-                else:
-                    return (None, 0)
-        elif side == -1:
-            if board.has_no_moves(chessboard, -1):
-                if board.test_check(chessboard, -1):
-                    return (None, 10000)
-                else:
-                    return (None, 0)
-        if depth == self.depth:
+        # if not board.find_king(chessboard, 1) and self.variant != 'horde':
+        #     return (None, -10000)
+        # elif not board.find_king(chessboard, -1):
+        #     return (None, 10000)
+        # elif pos_counts[chessboard] == 3:
+        #     return (None, 0)
+        # elif side == 1:
+        #     if board.has_no_moves(chessboard, 1):
+        #         if board.test_check(chessboard, 1) or self.variant == 'horde':
+        #             return (None, -10000)
+        #         else:
+        #             return (None, 0)
+        # elif side == -1:
+        #     if board.has_no_moves(chessboard, -1):
+        #         if board.test_check(chessboard, -1):
+        #             return (None, 10000)
+        #         else:
+        #             return (None, 0)
+        result = board.get_result(chessboard, pos_counts, self.variant, side, False)
+        if result is not None:
+            # Return a large number since we might be stopping early and doing
+            # a heuristic evaluation, which might be bigger than 1 or -1
+            return (None, result*100000)
+        elif depth == self.depth:
             value = heuristic.evaluate(chessboard)
             return (None, value)
         ordered_moves = self.order_moves_naive(chessboard, side)
