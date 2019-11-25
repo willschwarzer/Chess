@@ -1,6 +1,7 @@
+import os
+import pickle
 import random
 from time import time
-import pickle
 
 import agent
 import board
@@ -15,74 +16,77 @@ class MCTS(agent.Agent):
         self.input_path = input_path
         self.output_path = output_path
         if input_path:
-            load_root()
+            self.load_root()
         else:
             self.root = Node(board.set_board(variant), None)
             
         self.cur = self.root
 
     def load_root(self):
-        self.root = pickle.load(open(input_path, 'rb'))
+        file = open(os.path.join('saves', self.input_path), 'rb')
+        self.root = pickle.load(file)
     
     def store_root(self):
-        if output_path:
-            pickle.dump(self.root, open(output_path, 'wb'))
+        if self.output_path:
+            file = open(os.path.join('saves', self.output_path), 'wb')
+            pickle.dump(self.root, file)
+
+    def reset(self):
+        self.cur = self.root
 
     def get_move(self, chessboard, pos_counts):
         # then = time()
-        result = MCTS()
+        result = self.do_rollouts(pos_counts)
         # now = time()-then
         # print("get_move took " + str(now) + " seconds")
         return result
 
     def record_move(self, move):
-        # TODO
         if move not in self.cur.children.keys():
             self.cur.add_move(move)
         self.cur = self.cur.children[move]
         self.switch_sides()
 
 
-    def MCTS(self, pos_counts):
-        # TODO
+    def do_rollouts(self, pos_counts):
         side = self.side
-        for i in range(rollouts):
+        for i in range(self.n_rollouts):
             cur = self.cur
             cur.visits += 1
             pos_counts[cur.chessboard] += 1
             while len(cur.children) == len(board.get_all_moves(cur.chessboard, self.side))\
              and not (board.get_result(cur.chessboard, pos_counts, self.variant, self.side) is None):
-                bestChild = list(cur.children.values())[0]
+                best_child = list(cur.children.values())[0]
                 for child in list(cur.children.values())[1:]:
-                    if side*(child.UCBWeight()-bestChild.UCBWeight()) > 0:
-                        bestChild = child
-                cur = bestChild
+                    if side*(child.UCB_weight()-bestChild.UCB_weight()) > 0:
+                        best_child = child
+                cur = best_child
                 side *= -1
                 cur.visits += 1
                 pos_counts[cur.chessboard] += 1
             if board.get_result(cur.chessboard, pos_counts, self.variant, self.side) is not None:
                 continue
-            for move in board.get_all_moves(chessboard, side):
-                if cur.addMove(move):
+            for move in board.get_all_moves(cur.chessboard, side):
+                if cur.add_move(move):
                     break
             expanded = cur.children[move]
             expanded.visits += 1
-            outcome = random_to_end(expanded.chessboard, pos_counts, side, depth)
-            expanded.updateValue(outcome, self.cur, pos_counts)
+            outcome = self.random_to_end(expanded.chessboard, pos_counts, side, 0)
+            expanded.update_value(outcome, self.cur, pos_counts)
             pos_counts[cur.chessboard] -= 1
         
-        bestMove = list(root.children.keys())[0]
+        best_move = list(self.cur.children.keys())[0]
         for move in self.cur.children:
             child = self.cur.children[move]
-            bestChild = self.cur.children[bestMove]
-            if self.side*(child.getValue()-bestChild.getValue()) > 0:
-                bestMove = move
+            best_child = self.cur.children[best_move]
+            if self.side*(child.get_value()-best_child.get_value()) > 0:
+                best_move = move
             
-        return bestMove
+        return best_move
 
-    def random_to_end(chessboard, pos_counts, side, depth):
+    def random_to_end(self, chessboard, pos_counts, side, depth):
         ''' side: which player's move it is in position chessboard''' 
-        result = board.get_result(chessboard, pos_counts, self.variant, side, False)
+        result = board.get_result(chessboard, pos_counts, self.variant, -side, False)
         if result is not None:
             # Return a large number since we might be stopping early and doing
             # a heuristic evaluation, which might be bigger than 1 or -1
@@ -92,10 +96,18 @@ class MCTS(agent.Agent):
         elif self.use_heuristic:
             move = self.order_moves_naive(chessboard, side)[0] 
         else:
-            move = random.shuffle(board.get_all_moves(chessboard, side))[0]
+            moves = board.get_all_moves(chessboard, side)
+            if not moves:
+                breakpoint()
+            random.shuffle(moves)
+            move = moves[0]
+        # if board.piece_at_square(chessboard, *move[0]) == 11:
+            # board.print_board(chessboard)
+            # print(board.get_castling_rights(chessboard, 1))
+            # print()
         new_board = board.make_move(chessboard, *move)
         pos_counts[new_board] += 1
-        outcome = random_to_end(new_board, pos_counts, side, depth+1, use_heuristic)
+        outcome = self.random_to_end(new_board, pos_counts, -side, depth+1)
         pos_counts[new_board] -= 1
         return outcome
 
@@ -151,7 +163,7 @@ class Node(object):
         for child in self.children.values():
             self.value += child.value * child.visits
         if self.parent and self is not cur:
-            self.parent.updateValue(0, cur, pos_counts)
+            self.parent.update_value(0, cur, pos_counts)
 
     def UCB_weight(self, side):
         """Weight from the UCB formula used by parent to select a child.

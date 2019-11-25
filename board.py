@@ -245,6 +245,8 @@ def make_move(board, start, finish):
         board = remove_castling_rights(board, -1, -1)
     start_square = start[0]*8 + start[1]
     finish_square = finish[0]*8 + finish[1]
+    if piece_at_square(board, *finish) is None:
+        breakpoint()
     diff = piece*POWERS[finish_square] - \
             piece*POWERS[start_square] - \
             piece_at_square(board, *finish)*POWERS[finish_square]
@@ -635,6 +637,8 @@ def get_moves_king(board, row, col, check_threat=False):
     if not check_threat and not test_check(board, side):
         if castle_rights == 1 or castle_rights == 3:
             if square_is_empty(board, row, col+1) and square_is_empty(board, row, col+2):
+                if (col+1 == 8):
+                    breakpoint()
                 if not test_check(make_move(board, (row, col), (row, col+1)), side):
                     moves.append((row, col+2))
         if castle_rights == 2 or castle_rights == 3:
@@ -669,23 +673,35 @@ def make_AI_move(board, side, AI_agent):
     move = AI_agent.make_move(board, side)
     return make_move(board, move[0], move[1])
 
+def print_board(board):
+    ''' For debugging: just prints all pieces on the board in numeric form'''
+    for row in range(8):
+        for col in range(8):
+            print(piece_at_square(board, row, col), end=' ')
+        print()
+
 def get_result(board, pos_counts, variant, side, print_result=True):
     if has_no_moves(board, -side):
         if test_check(board, -side):
-            print('{} wins!'.format('White' if side == 1 else 'Black'))
+            if print_result:
+                print('{} wins!'.format('White' if side == 1 else 'Black'))
             return 1
         elif side == -1 and variant == 'horde':
-            print('Black wins!')
+            if print_result:
+                print('Black wins!')
             return -1
         else:
-            print('Stalemate.')
+            if print_result:
+                print('Stalemate.')
             return 0
         # wait for human to click?
     elif pos_counts[board] == 3:
-        print('Draw by threefold repetition.')
+        if print_result:
+            print('Draw by threefold repetition.')
         return 0
     elif sum(pos_counts.values()) >= 200:
-        print('Draw by being a really long game.')
+        if print_result:
+            print('Draw by being a really long game.')
         return 0
     return None
 

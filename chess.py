@@ -72,13 +72,6 @@ def draw_board(chessboard, surface):
             rect = pygame.Rect(x0, y0, square_size, square_size)
             surface.blit(piece_img, rect)
 
-def print_board(chessboard):
-    ''' For debugging: just prints all pieces on the board in numeric form'''
-    for row in range(8):
-        for col in range(8):
-            print(board.piece_at_square(chessboard, row, col), end=' ')
-        print()
-
 def highlight_square(surface, row, col, dark=False):
     square_size = (SQUARE_SIZE*BOARD_SCALE)
     board_margin = (BOARD_MARGIN*BOARD_SCALE)
@@ -154,9 +147,9 @@ def play_game(agent1, agent2, surface, variant, wait_between):
         last_move = move
         chessboard = board.make_move(chessboard, *move)
         if type(agent1) == MCTS:
-            agent1.add_move(move)
+            agent1.record_move(move)
         if type(agent2) == MCTS:
-            agent2.add_move(move)
+            agent2.record_move(move)
         if surface:
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
@@ -174,9 +167,9 @@ def play_game(agent1, agent2, surface, variant, wait_between):
         last_move = move
         chessboard = board.make_move(chessboard, *move)
         if type(agent1) == MCTS:
-            agent1.add_move(move)
+            agent1.record_move(move)
         if type(agent2) == MCTS:
-            agent2.add_move(move)
+            agent2.record_move(move)
         if surface:
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
@@ -204,11 +197,11 @@ def parse_args():
                         help='whether or not to use heuristic to guide rollouts')
     parser.add_argument('--input-file', type=str, nargs='+', default=[],
                         help='which (pickle) file to read in the AI from')
-    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[2],
+    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[20],
                         help='MCTS max AI search depth (0 for unlimited)')
-    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[2],
+    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[50],
                         help='number of MCTS rollouts')
-    parser.add_argument('--minimax-depth', type=int, nargs='+', default=2,
+    parser.add_argument('--minimax-depth', type=int, nargs='+', default=[2],
                         help='minimax max AI search depth')
     parser.add_argument('--num-games', type=int, default=1,
                         help='how many games to play')
@@ -236,6 +229,8 @@ def parse_args():
         args.heuristic_rollouts = args.heuristic_rollouts * 2
     if len(args.mcts_rollouts) == 1:
         args.mcts_rollouts = args.mcts_rollouts * 2
+    if len(args.mcts_depth) == 1:
+        args.mcts_depth = args.mcts_depth * 2
 
     return args
 
@@ -247,7 +242,7 @@ def main(args):
     elif args.player1 == "mcts":
         agent1 = MCTS(1, args.mcts_depth[0], args.mcts_rollouts[0],\
          args.variant, args.heuristic_rollouts[0], \
-         input_file[0] if input_file else None, output_file[0] if output_file else None)
+         args.input_file[0] if args.input_file else None, args.output_file[0] if args.output_file else None)
 
     if args.player2 == "human":
         agent2 = Human(-1, surface)
@@ -255,11 +250,15 @@ def main(args):
         agent2 = Minimax(-1, args.minimax_depth[1], args.variant)
     elif args.player2 == "mcts":
         agent2 = MCTS(-1, args.mcts_depth[1], args.mcts_rollouts[1],\
-         args.variant, args.heuristic_rollouts[1], input_file[1] if len(input_file) == 2 else None,\
-          output_file[1] if len(output_file) == 2 else None)
+         args.variant, args.heuristic_rollouts[1], args.input_file[1] if len(args.input_file) == 2 else None,\
+          args.output_file[1] if len(args.output_file) == 2 else None)
 
     for i in range(args.num_games):
         play_game(agent1, agent2, surface, args.variant, args.wait_between)
+        if type(agent1) == MCTS:
+            agent1.reset()
+        if type(agent2) == MCTS:
+            agent2.reset()
         if args.alternate_sides:
             agent1.switch_sides()
             agent2.switch_sides()
