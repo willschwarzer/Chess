@@ -71,7 +71,9 @@ class MCTS(agent.Agent):
                 pos_counts[cur.chessboard] += 1
             if board.get_result(cur.chessboard, pos_counts, self.variant, side, False) is not None:
                 continue
-            for move in board.get_all_moves(cur.chessboard, side):
+            moves = board.get_all_moves(cur.chessboard, side)
+            random.shuffle(moves)
+            for move in moves:
                 if cur.add_move(move):
                     break
             expanded = cur.children[move]

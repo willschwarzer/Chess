@@ -253,7 +253,7 @@ def main(args):
     elif args.player2 == "minimax":
         agent2 = Minimax(-1, args.minimax_depth[1], args.variant)
     elif args.player2 == "mcts":
-        agent2 = MCTS(-1, args.mcts_depth[1], args.mcts_rollouts[1],\
+        agent2 = MCTS(1, args.mcts_depth[1], args.mcts_rollouts[1],\
          args.variant, args.heuristic_rollouts[1], args.input_file[1] if len(args.input_file) == 2 else None,\
           args.output_file[1] if len(args.output_file) == 2 else None, args.ucb_const[1])
 
