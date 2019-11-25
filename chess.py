@@ -9,7 +9,7 @@ import argparse
 from collections import defaultdict
 import pygame
 import time
-import torch
+
 import sys
 
 
@@ -19,7 +19,7 @@ import heuristic
 from mcts import MCTS
 from minimax import Minimax
 
-
+'''
 PIECE_IMGS = [
     None,
     pygame.image.load("images/whitepawn2.png"),
@@ -44,7 +44,7 @@ BOARD_MARGIN = 18 # was 15
 SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8.0
 last_move = None
 # Board scale declared in __main__
-
+'''
 def draw_board(chessboard, surface):
     ''' Draws all pieces on a given board'''
     global last_move
@@ -265,10 +265,10 @@ def main(args):
             temp = agent1
             agent1 = agent2
             agent2 = temp
-    if type(agent1) == MCTS:
-        agent1.store_root()
-    if type(agent2) == MCTS:
-        agent2.store_root()
+        if type(agent1) == MCTS:
+            agent1.store_root()
+        if type(agent2) == MCTS:
+            agent2.store_root()
 
 
 

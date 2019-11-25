@@ -2,6 +2,7 @@ import os
 import pickle
 import random
 from time import time
+from collections import defaultdict
 
 import agent
 import board
@@ -15,6 +16,7 @@ class MCTS(agent.Agent):
         self.use_heuristic = use_heuristic
         self.input_path = input_path
         self.output_path = output_path
+        self.random_moves_list = []
         if input_path:
             self.load_root()
         else:
@@ -71,7 +73,7 @@ class MCTS(agent.Agent):
                     break
             expanded = cur.children[move]
             expanded.visits += 1
-            outcome = self.random_to_end(expanded.chessboard, pos_counts, side, 0)
+            outcome = self.random_to_end(expanded.chessboard, pos_counts, -side, 0)
             expanded.update_value(outcome, self.cur, pos_counts)
             pos_counts[cur.chessboard] -= 1
         
@@ -86,6 +88,7 @@ class MCTS(agent.Agent):
 
     def random_to_end(self, chessboard, pos_counts, side, depth):
         ''' side: which player's move it is in position chessboard''' 
+        self.random_moves_list = [] if depth == 0 else self.random_moves_list
         result = board.get_result(chessboard, pos_counts, self.variant, -side, False)
         if result is not None:
             # Return a large number since we might be stopping early and doing
@@ -106,6 +109,13 @@ class MCTS(agent.Agent):
             # print(board.get_castling_rights(chessboard, 1))
             # print()
         new_board = board.make_move(chessboard, *move)
+        self.random_moves_list.append(move)
+        piece_counts = defaultdict(int)
+        for row in range(8):
+            for col in range(8):
+                piece_counts[board.piece_at_square(new_board, row, col)] += 1
+        if piece_counts[11] != 1 or piece_counts[12] != 1:
+            breakpoint()
         pos_counts[new_board] += 1
         outcome = self.random_to_end(new_board, pos_counts, -side, depth+1)
         pos_counts[new_board] -= 1
