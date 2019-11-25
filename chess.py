@@ -15,6 +15,7 @@ import sys
 import agent
 import board
 import heuristic
+import mcts
 import minimax
 
 
@@ -136,26 +137,6 @@ def wait_for_click():
             elif event.type == pygame.MOUSEBUTTONUP and click:
                 return
 
-def get_result(chessboard, pos_counts, side):
-    if board.has_no_moves(chessboard, -side):
-        if board.test_check(chessboard, -side):
-            print('{} wins!'.format('White' if side == 1 else 'Black'))
-            return 1
-        elif side == -1 and args.variant == 'horde':
-            print('Black wins!')
-            return -1
-        else:
-            print('Stalemate.')
-            return 0
-        # wait for human to click?
-    elif pos_counts[chessboard] == 3:
-        print('Draw by threefold repetition.')
-        return 0
-    elif sum(pos_counts.values()) >= 200:
-        print('Draw by being a really long game.')
-        return 0
-    return None
-
 def play_game(agent1, agent2, surface, variant, wait_between):
     ''' Play chess '''
     global last_move
@@ -177,7 +158,7 @@ def play_game(agent1, agent2, surface, variant, wait_between):
             pygame.display.flip()
         # checkmate checks, etc
         pos_counts[chessboard] += 1
-        result = get_result(chessboard, pos_counts, 1)
+        result = board.get_result(chessboard, pos_counts, variant, 1)
         if result is not None:
             if wait_between:
                 print("Click to continue...")
@@ -191,7 +172,7 @@ def play_game(agent1, agent2, surface, variant, wait_between):
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
             pygame.display.flip()
-        result = get_result(chessboard, pos_counts, -1)
+        result = board.get_result(chessboard, pos_counts, variant, -1)
         if result is not None:
             if wait_between:
                 print("Click to continue...")
@@ -204,25 +185,34 @@ def play_game(agent1, agent2, surface, variant, wait_between):
 
 def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--variant', type=str, default='normal',
-                        help='type of chess to play')
+    parser.add_argument('--alternate-sides', action="store_true", default=False,
+                        help='alternate sides (color) every other game')
+    parser.add_argument('--cuda', action='store_true', default=False,
+                        help='whether or not to use gpu')
+    parser.add_argument('--display', action="store_true", default=False,
+                        help='whether AI games display with the board')
+    parser.add_argument('--heuristic-rollouts', type=bool, nargs='+', default=[False],
+                        help='whether or not to use heuristic to guide rollouts')
+    parser.add_argument('input-file', type=str, nargs='+', default=None,
+                        help='which (pickle) file to read in the AI from')
+    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[2],
+                        help='MCTS max AI search depth (0 for unlimited)')
+    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[2],
+                        help='number of MCTS rollouts')
+    parser.add_argument('--minimax-depth', type=int, nargs='+', default=2,
+                        help='minimax max AI search depth')
+    parser.add_argument('--num-games', type=int, default=1,
+                        help='how many games to play')
+    parser.add_argument('output-file', type=str, nargs='+', default=None,
+                        help='which (pickle) file to write the AI to')
     parser.add_argument('--player1', type=str, default='human',
                         help='who player 1 is (white)')
     parser.add_argument('--player2', type=str, default='minimax',
                         help='who player 2 is (black)')
-    parser.add_argument('--minimax-depth', type=int, nargs='+', default=2,
-                        help='minimax max AI search depth')
     parser.add_argument('--scale', type=float, default=1,
                         help='scaling factor for the board')
-    parser.add_argument('--alternate-sides', action="store_true", default=False,
-                        help='alternate sides (color) every other game')
-
-    parser.add_argument('--num-games', type=int, default=1,
-                        help='how many games to play')
-    parser.add_argument('--display', action="store_true", default=False,
-                        help='whether AI games display with the board')
-    parser.add_argument('--cuda', action='store_true', default=False,
-                        help='whether or not to use gpu')
+    parser.add_argument('--variant', type=str, default='normal',
+                        help='type of chess to play')
     parser.add_argument('--wait-between', action='store_true', default=False,
                         help='whether or not to wait for a click between games')
     # parser.add_argument('')
@@ -232,22 +222,6 @@ def parse_args():
     if args.player1 == 'human' or args.player2 =='human':
         args.wait_between = True
 
-    # if args.self_play != None:
-    #     if len(args.self_play) == 1:
-    #         args.self_play = 2*args.self_play
-    #     if len(args.self_play != 2):
-    #         raise RuntimeError('Please specify exactly two algs for self-play')
-    #     for alg in args.self_play:
-    #         if alg not in ['minimax', 'mcts']:
-    #             raise RuntimeError('Please specify valid algs for self-play')
-    #     if args.self_play[0] == 'minimax':
-    #         raise RuntimeError('You can\'t train minimax with self-play!')
-
-    #if args.player_side == 'white':
-    #    args.player_side = 1
-    #else:
-    #    args.player_side = -1
-
     return args
 
 def main(args):
@@ -255,14 +229,24 @@ def main(args):
         agent1 = Human(1,surface)
     elif args.player1 == "minimax":
         agent1 = minimax.Minimax(1, args.minimax_depth[0], args.variant)
+    elif args.player1 == "mcts":
+        agent1 = mcts.MCTS(1, args.mcts_depth[0], args.heuristic_rollouts[0])
 
     if args.player2 == "human":
         agent2 = Human(-1, surface)
     elif args.player2 == "minimax":
         agent2 = minimax.Minimax(-1, args.minimax_depth[1], args.variant)
+    elif args.player2 == "mcts":
+        agent1 = mcts.MCTS(1, args.mcts_depth[1], args.heuristic_rollouts[1])
 
     for i in range(args.num_games):
         play_game(agent1, agent2, surface, args.variant, args.wait_between)
+        if args.alternate_sides:
+            agent1.side *= -1
+            agent2.side *= -1
+            temp = agent1
+            agent1 = agent2
+            agent2 = temp
 
 
 if __name__ == "__main__":

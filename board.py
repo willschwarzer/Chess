@@ -485,3 +485,24 @@ def make_AI_move(board, side, AI_agent):
     #move = alpha_beta(board, 0, -100000, 100000, side)[0]
     move = AI_agent.make_move(board, side)
     return make_move(board, move[0], move[1])
+
+def get_result(chessboard, pos_counts, variant, side):
+    if board.has_no_moves(chessboard, -side):
+        if board.test_check(chessboard, -side):
+            print('{} wins!'.format('White' if side == 1 else 'Black'))
+            return 1
+        elif side == -1 and variant == 'horde':
+            print('Black wins!')
+            return -1
+        else:
+            print('Stalemate.')
+            return 0
+        # wait for human to click?
+    elif pos_counts[chessboard] == 3:
+        print('Draw by threefold repetition.')
+        return 0
+    elif sum(pos_counts.values()) >= 200:
+        print('Draw by being a really long game.')
+        return 0
+    return None
+
