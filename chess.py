@@ -12,11 +12,12 @@ import time
 import torch
 import sys
 
+
 import agent
 import board
 import heuristic
 from mcts import MCTS
-import minimax
+from minimax import Minimax
 
 
 PIECE_IMGS = [
@@ -201,17 +202,17 @@ def parse_args():
                         help='whether AI games display with the board')
     parser.add_argument('--heuristic-rollouts', type=bool, nargs='+', default=[False],
                         help='whether or not to use heuristic to guide rollouts')
-    parser.add_argument('input-file', type=str, nargs='+', default=None,
+    parser.add_argument('--input-file', type=str, nargs='+', default=[],
                         help='which (pickle) file to read in the AI from')
-    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[2],
+    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[2,2],
                         help='MCTS max AI search depth (0 for unlimited)')
-    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[2],
+    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[2,2],
                         help='number of MCTS rollouts')
     parser.add_argument('--minimax-depth', type=int, nargs='+', default=2,
                         help='minimax max AI search depth')
     parser.add_argument('--num-games', type=int, default=1,
                         help='how many games to play')
-    parser.add_argument('output-file', type=str, nargs='+', default=None,
+    parser.add_argument('--output-file', type=str, nargs='+', default=[],
                         help='which (pickle) file to write the AI to')
     parser.add_argument('--player1', type=str, default='human',
                         help='who player 1 is (white)')
@@ -236,25 +237,34 @@ def main(args):
     if args.player1 == "human":
         agent1 = Human(1,surface)
     elif args.player1 == "minimax":
-        agent1 = minimax.Minimax(1, args.minimax_depth[0], args.variant)
+        agent1 = Minimax(1, args.minimax_depth[0], args.variant)
     elif args.player1 == "mcts":
-        agent1 = MCTS(1, args.mcts_depth[0], args.heuristic_rollouts[0])
+        agent1 = MCTS(1, args.mcts_depth[0], args.heuristic_rollouts[0],\
+         args.variant, heuristic.evaluate, \
+         input_file[0] if input_file else None, output_file[0] if output_file else None)
 
     if args.player2 == "human":
         agent2 = Human(-1, surface)
     elif args.player2 == "minimax":
-        agent2 = minimax.Minimax(-1, args.minimax_depth[1], args.variant)
+        agent2 = Minimax(-1, args.minimax_depth[1], args.variant)
     elif args.player2 == "mcts":
-        agent1 = MCTS(1, args.mcts_depth[1], args.heuristic_rollouts[1])
+        agent2 = MCTS(-1, args.mcts_depth[1], args.heuristic_rollouts[1],\
+         args.variant, heuristic.evaluate,input_file[1] if len(input_file) == 2 else None,\
+          output_file[1] if len(output_file) == 2 else None)
 
     for i in range(args.num_games):
         play_game(agent1, agent2, surface, args.variant, args.wait_between)
         if args.alternate_sides:
-            agent1.side *= -1
-            agent2.side *= -1
+            agent1.switch_sides()
+            agent2.switch_sides()
             temp = agent1
             agent1 = agent2
             agent2 = temp
+    if type(agent1) == MCTS:
+        agent1.store_root()
+    if type(agent2) == MCTS:
+        agent2.store_root()
+
 
 
 if __name__ == "__main__":

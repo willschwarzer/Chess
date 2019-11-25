@@ -1,18 +1,32 @@
 import random
 from time import time
+import pickle
 
 import agent
 import board
 import heuristic
 class MCTS(agent.Agent):
-    def __init__(self, side, max_depth, n_rollouts, variant, use_heuristic):
+    def __init__(self, side, max_depth, n_rollouts, variant, use_heuristic, input_path, output_path):
         self.side = side
         self.max_depth = max_depth
         self.n_rollouts = n_rollouts
         self.variant = variant
         self.use_heuristic = use_heuristic
-        self.root = Node(board.set_board(variant), None)
+        self.input_path = input_path
+        self.output_path = output_path
+        if input_path:
+            load_root()
+        else:
+            self.root = Node(board.set_board(variant), None)
+            
         self.cur = self.root
+
+    def load_root(self):
+        self.root = pickle.load(open(input_path, 'rb'))
+    
+    def store_root(self):
+        if output_path:
+            pickle.dump(self.root, open(output_path, 'wb'))
 
     def get_move(self, chessboard, pos_counts):
         # then = time()
