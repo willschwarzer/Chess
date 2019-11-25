@@ -19,7 +19,6 @@ import heuristic
 from mcts import MCTS
 from minimax import Minimax
 
-'''
 PIECE_IMGS = [
     None,
     pygame.image.load("images/whitepawn2.png"),
@@ -44,7 +43,7 @@ BOARD_MARGIN = 18 # was 15
 SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8.0
 last_move = None
 # Board scale declared in __main__
-'''
+
 def draw_board(chessboard, surface):
     ''' Draws all pieces on a given board'''
     global last_move
@@ -174,6 +173,7 @@ def play_game(agent1, agent2, surface, variant, wait_between):
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
             pygame.display.flip()
+        pos_counts[chessboard] += 1
         result = board.get_result(chessboard, pos_counts, variant, -1)
         if result is not None:
             if wait_between:
@@ -256,9 +256,9 @@ def main(args):
     for i in range(args.num_games):
         play_game(agent1, agent2, surface, args.variant, args.wait_between)
         if type(agent1) == MCTS:
-            agent1.reset()
+            agent1.reset(1)
         if type(agent2) == MCTS:
-            agent2.reset()
+            agent2.reset(-1)
         if args.alternate_sides:
             agent1.switch_sides()
             agent2.switch_sides()

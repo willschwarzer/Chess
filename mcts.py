@@ -33,8 +33,9 @@ class MCTS(agent.Agent):
             file = open(os.path.join('saves', self.output_path), 'wb')
             pickle.dump(self.root, file)
 
-    def reset(self):
+    def reset(self, side):
         self.cur = self.root
+        self.side = side
 
     def get_move(self, chessboard, pos_counts):
         # then = time()
@@ -47,7 +48,7 @@ class MCTS(agent.Agent):
         if move not in self.cur.children.keys():
             self.cur.add_move(move)
         self.cur = self.cur.children[move]
-        self.switch_sides()
+        self.side *= -1
 
 
     def do_rollouts(self, pos_counts):
@@ -166,13 +167,13 @@ class Node(object):
         """Updates the value estimate for the node's state.
         outcome: +100000 for a first player win, -100000 for a second player win, 0 for a draw, or some heuristic evaluation in between"""
         # NOTE: which outcome is preferred depends on self.state.turn()
-        pos_counts[self.chessboard] -= 1
         self.value = 0
         if len(self.children) == 0:
             self.value = outcome
         for child in self.children.values():
             self.value += child.value * child.visits
         if self.parent and self is not cur:
+            pos_counts[self.chessboard] -= 1
             self.parent.update_value(0, cur, pos_counts)
 
     def UCB_weight(self, side):

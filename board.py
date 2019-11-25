@@ -225,16 +225,16 @@ def make_move(board, start, finish):
             board = set_ep_square(board, start[0]+1, start[1])
     # If moving a rook, remove those castling rights
     # White kingside rook
-    if start == (7, 7):
+    if start == (7, 7) or finish == (7, 7):
         board = remove_castling_rights(board, 1, 1)
     # White queenside rook
-    elif start == (7, 0):
+    elif start == (7, 0) or finish == (7, 0):
         board = remove_castling_rights(board, 1, -1)
     # Black kingside rook
-    elif start == (0, 7):
+    elif start == (0, 7) or finish == (0, 7):
         board = remove_castling_rights(board, -1, 1)
     # Black queenside rook
-    elif start == (0, 0):
+    elif start == (0, 0) or finish == (0, 0):
         board = remove_castling_rights(board, -1, -1)
     # If moving a king, remove all castling rights
     if piece == 11:
