@@ -35,42 +35,52 @@ class MCTS(agent.Agent):
         # print("get_move took " + str(now) + " seconds")
         return result
 
-    def add_move(self, move):
+    def record_move(self, move):
         # TODO
-        pass
+        if move not in self.cur.children.keys():
+            self.cur.add_move(move)
+        self.cur = self.cur.children[move]
+        self.switch_sides()
 
-    def MCTS():
+
+    def MCTS(self, pos_counts):
         # TODO
+        side = self.side
         for i in range(rollouts):
             cur = self.cur
             cur.visits += 1
-            while len(cur.children) == len(cur.state.getMoves()) and not cur.state.isTerminal():
+            pos_counts[cur.chessboard] += 1
+            while len(cur.children) == len(board.get_all_moves(cur.chessboard, self.side))\
+             and not (board.get_result(cur.chessboard, pos_counts, self.variant, self.side) is None):
                 bestChild = list(cur.children.values())[0]
                 for child in list(cur.children.values())[1:]:
-                    if cur.state.getTurn()*(child.UCBWeight()-bestChild.UCBWeight()) > 0:
+                    if side*(child.UCBWeight()-bestChild.UCBWeight()) > 0:
                         bestChild = child
                 cur = bestChild
+                side *= -1
                 cur.visits += 1
-            if cur.state.isTerminal():
+                pos_counts[cur.chessboard] += 1
+            if board.get_result(cur.chessboard, pos_counts, self.variant, self.side) is not None:
                 continue
             for move in board.get_all_moves(chessboard, side):
                 if cur.addMove(move):
                     break
             expanded = cur.children[move]
             expanded.visits += 1
-            outcome = random_to_end(expanded.state)
-            expanded.updateValue(outcome)
+            outcome = random_to_end(expanded.chessboard, pos_counts, side, depth)
+            expanded.updateValue(outcome, self.cur, pos_counts)
+            pos_counts[cur.chessboard] -= 1
         
         bestMove = list(root.children.keys())[0]
-        for move in root.children:
-            child = root.children[move]
-            bestChild = root.children[bestMove]
-            if root.state.getTurn()*(child.getValue()-bestChild.getValue()) > 0:
+        for move in self.cur.children:
+            child = self.cur.children[move]
+            bestChild = self.cur.children[bestMove]
+            if self.side*(child.getValue()-bestChild.getValue()) > 0:
                 bestMove = move
             
         return bestMove
 
-    def random_to_end(chessboard, pos_counts, side, depth, use_heuristic):
+    def random_to_end(chessboard, pos_counts, side, depth):
         ''' side: which player's move it is in position chessboard''' 
         result = board.get_result(chessboard, pos_counts, self.variant, side, False)
         if result is not None:
@@ -79,7 +89,7 @@ class MCTS(agent.Agent):
             return result*100000
         elif self.max_depth != 0 and depth == self.max_depth:
             return heuristic.evaluate(chessboard)
-        elif use_heuristic:
+        elif self.use_heuristic:
             move = self.order_moves_naive(chessboard, side)[0] 
         else:
             move = random.shuffle(board.get_all_moves(chessboard, side))[0]
@@ -130,17 +140,18 @@ class Node(object):
         """
         return self.value
 
-    def update_value(self, outcome):
+    def update_value(self, outcome, cur, pos_counts):
         """Updates the value estimate for the node's state.
         outcome: +100000 for a first player win, -100000 for a second player win, 0 for a draw, or some heuristic evaluation in between"""
         # NOTE: which outcome is preferred depends on self.state.turn()
+        pos_counts[self.chessboard] -= 1
         self.value = 0
         if len(self.children) == 0:
             self.value = outcome
         for child in self.children.values():
             self.value += child.value * child.visits
-        if self.parent:
-            self.parent.updateValue(0)
+        if self.parent and self is not cur:
+            self.parent.updateValue(0, cur, pos_counts)
 
     def UCB_weight(self, side):
         """Weight from the UCB formula used by parent to select a child.

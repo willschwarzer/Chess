@@ -9,7 +9,7 @@ class Agent:
 		self.side = side
 
 	def switch_sides(self):
-		self.side = -1 if self.side+1 else 1
+		self.side *= -1
 
 	def get_move(self,board, pos_counts):
 		raise(RuntimeError("get_move method not overruled by inheriting class"))
