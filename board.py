@@ -306,6 +306,8 @@ def find_king(board, side):
 
 def test_check(board, side):
     king_square = find_king(board, side)
+    if not king_square:
+        return False
     # for row in range(8):
     #     for col in range(8):
     #         piece = piece_at_square(board, row, col)
@@ -317,10 +319,17 @@ def test_check(board, side):
     # Test upper left diag
     row = king_square[0]-1
     col = king_square[1]-1
-    while piece_at_square(board, row, col) == 0:
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_KING:
+            return True
+    else:
+        if piece == WHITE_KING:
+            return True
+    while piece == 0:
         col -= 1
         row -= 1
-    piece = piece_at_square(board, row, col)
+        piece = piece_at_square(board, row, col)
     if side == 1:
         if piece == BLACK_BISHOP or piece == BLACK_QUEEN:
             return True
@@ -330,10 +339,17 @@ def test_check(board, side):
     # Test upper right diag
     row = king_square[0]-1
     col = king_square[1]+1
-    while piece_at_square(board, row, col) == 0:
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_KING:
+            return True
+    else:
+        if piece == WHITE_KING:
+            return True
+    while piece == 0:
         col += 1
         row -= 1
-    piece = piece_at_square(board, row, col)
+        piece = piece_at_square(board, row, col)
     if side == 1:
         if piece == BLACK_BISHOP or piece == BLACK_QUEEN:
             return True
@@ -343,10 +359,17 @@ def test_check(board, side):
     # Test lower left diag
     row = king_square[0]+1
     col = king_square[1]-1
-    while piece_at_square(board, row, col) == 0:
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_KING:
+            return True
+    else:
+        if piece == WHITE_KING:
+            return True
+    while piece == 0:
         col -= 1
         row += 1
-    piece = piece_at_square(board, row, col)
+        piece = piece_at_square(board, row, col)
     if side == 1:
         if piece == BLACK_BISHOP or piece == BLACK_QUEEN:
             return True
@@ -356,10 +379,17 @@ def test_check(board, side):
     # Test lower left diag
     row = king_square[0]+1
     col = king_square[1]+1
-    while piece_at_square(board, row, col) == 0:
+    piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_KING:
+            return True
+    else:
+        if piece == WHITE_KING:
+            return True
+    while piece == 0:
         col += 1
         row += 1
-    piece = piece_at_square(board, row, col)
+        piece = piece_at_square(board, row, col)
     if side == 1:
         if piece == BLACK_BISHOP or piece == BLACK_QUEEN:
             return True
@@ -370,9 +400,16 @@ def test_check(board, side):
     # Test col above
     row = king_square[0]-1
     col = king_square[1]
-    while piece_at_square(board, row, col) == 0:
-        row -= 1
     piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_KING:
+            return True
+    else:
+        if piece == WHITE_KING:
+            return True
+    while piece == 0:
+        row -= 1
+        piece = piece_at_square(board, row, col)
     if side == 1:
         if piece == BLACK_ROOK or piece == BLACK_QUEEN:
             return True
@@ -382,9 +419,16 @@ def test_check(board, side):
     # Test col below
     row = king_square[0]+1
     col = king_square[1]
-    while piece_at_square(board, row, col) == 0:
-        row += 1
     piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_KING:
+            return True
+    else:
+        if piece == WHITE_KING:
+            return True
+    while piece == 0:
+        row += 1
+        piece = piece_at_square(board, row, col)
     if side == 1:
         if piece == BLACK_ROOK or piece == BLACK_QUEEN:
             return True
@@ -394,9 +438,16 @@ def test_check(board, side):
     # Test row to the left
     row = king_square[0]
     col = king_square[1]-1
-    while piece_at_square(board, row, col) == 0:
-        col -= 1
     piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_KING:
+            return True
+    else:
+        if piece == WHITE_KING:
+            return True
+    while piece == 0:
+        col -= 1
+        piece = piece_at_square(board, row, col)
     if side == 1:
         if piece == BLACK_ROOK or piece == BLACK_QUEEN:
             return True
@@ -406,9 +457,16 @@ def test_check(board, side):
     # Test row to the right
     row = king_square[0]
     col = king_square[1]+1
-    while piece_at_square(board, row, col) == 0:
-        col += 1
     piece = piece_at_square(board, row, col)
+    if side == 1:
+        if piece == BLACK_KING:
+            return True
+    else:
+        if piece == WHITE_KING:
+            return True
+    while piece == 0:
+        col += 1
+        piece = piece_at_square(board, row, col)
     if side == 1:
         if piece == BLACK_ROOK or piece == BLACK_QUEEN:
             return True
@@ -417,7 +475,7 @@ def test_check(board, side):
             return True
     row = king_square[0]
     col = king_square[1]
-    knight_squares = [move[1] for move in get_moves_knight(board, row, col) if in_bounds(*(move[1]))]
+    knight_squares = [move for move in get_moves_knight(board, row, col) if in_bounds(*move)]
     if side == 1:
         for square in knight_squares:
             if piece_at_square(board, *square) == BLACK_KNIGHT:
@@ -436,6 +494,7 @@ def test_check(board, side):
             return True
         elif piece_at_square(board, row+1, col+1) == WHITE_PAWN:
             return True
+    return False
 
 
 def in_bounds(row, col):
@@ -610,9 +669,9 @@ def make_AI_move(board, side, AI_agent):
     move = AI_agent.make_move(board, side)
     return make_move(board, move[0], move[1])
 
-def get_result(chessboard, pos_counts, variant, side, print_result=True):
-    if board.has_no_moves(chessboard, -side):
-        if board.test_check(chessboard, -side):
+def get_result(board, pos_counts, variant, side, print_result=True):
+    if has_no_moves(board, -side):
+        if test_check(board, -side):
             print('{} wins!'.format('White' if side == 1 else 'Black'))
             return 1
         elif side == -1 and variant == 'horde':
@@ -622,7 +681,7 @@ def get_result(chessboard, pos_counts, variant, side, print_result=True):
             print('Stalemate.')
             return 0
         # wait for human to click?
-    elif pos_counts[chessboard] == 3:
+    elif pos_counts[board] == 3:
         print('Draw by threefold repetition.')
         return 0
     elif sum(pos_counts.values()) >= 200:

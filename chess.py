@@ -15,7 +15,7 @@ import sys
 import agent
 import board
 import heuristic
-import mcts
+from mcts import MCTS
 import minimax
 
 
@@ -238,14 +238,14 @@ def main(args):
     elif args.player1 == "minimax":
         agent1 = minimax.Minimax(1, args.minimax_depth[0], args.variant)
     elif args.player1 == "mcts":
-        agent1 = mcts.MCTS(1, args.mcts_depth[0], args.heuristic_rollouts[0])
+        agent1 = MCTS(1, args.mcts_depth[0], args.heuristic_rollouts[0])
 
     if args.player2 == "human":
         agent2 = Human(-1, surface)
     elif args.player2 == "minimax":
         agent2 = minimax.Minimax(-1, args.minimax_depth[1], args.variant)
     elif args.player2 == "mcts":
-        agent1 = mcts.MCTS(1, args.mcts_depth[1], args.heuristic_rollouts[1])
+        agent1 = MCTS(1, args.mcts_depth[1], args.heuristic_rollouts[1])
 
     for i in range(args.num_games):
         play_game(agent1, agent2, surface, args.variant, args.wait_between)
