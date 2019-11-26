@@ -22,7 +22,7 @@ Almost every setting that can be modified for these AIs is modifiable through ar
 
 ```--player1 --player2``` are white and black, respectively, and default to human and minimax.
 
-```--mcts-depth, --minimax-depth, --mcts-rollouts``` all control those respective numbers. If you have 2 minimax or 2 mcts, you can input multiple values to have asymmetric AIs.
+```--mcts-depth, --minimax-depth, --mcts-rollouts``` all control those respective numbers. If you have 2 minimax or 2 mcts, you can input multiple values to have asymmetric AIs. MCTS depth of 0 will go all the way to the end.
 
 ```--variant``` you can play horde chess. Both the AIs should work with this too. Definitely minimax does.
 
