@@ -1,5 +1,5 @@
 ## Chess
-
+[GITHUB LINK](https://github.com/willschwarzer/Chess/)
 Chess with AI in Python. Chess elements modified by Will Schwarzer from his and Tony Bouza's final intro CS project (https://github.com/willschwarzer/ChessSnake) - note however that nearly all code was rewritten extensively for this project. AI done by Will Schwarzer and Blake Johnson.
 
 ### Dependencies:
