@@ -283,7 +283,7 @@ if __name__ == "__main__":
         DEVICE = torch.device('cuda')
 
     if args.display or args.player1=="human" or args.player2=="human":
-        board_image = pygame.image.load("images/chessboard.jpg")
+        board_image = pygame.image.load("images/chessboard3.png")
         pygame.init()
 
         board_size = int(BOARD_SIZE*BOARD_SCALE)
