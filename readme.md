@@ -43,6 +43,50 @@ When we updated our check detection and enabled it for Minimax, this problem com
 
 Another possibility that we would've liked to explore further are different heuristics. Our algorithms should be able to function with multiple heuristics, but we only had time to implement a basic point-value heuristic which just adds up the conventional chess piece values (and subtracts the opponent's). With more time, we could compare different heuristics and see what works best.
 
+## Data
+Here's some code with MCTS playing against itself showing the speed difference with heuristic rollouts. Both versions were doing 20 rollouts with depth 0 (all the way to the end).
+```
+Hueristic rollouts:   get_move took 12.00 seconds
+Random rollouts:      get_move took 11.75 seconds
+Hueristic rollouts:   get_move took 10.70 seconds
+Random rollouts:      get_move took 13.75 seconds
+Hueristic rollouts:   get_move took 9.60 seconds
+Random rollouts:      get_move took 15.70 seconds
+Hueristic rollouts:   get_move took 7.63 seconds
+Random rollouts:      get_move took 14.96 seconds
+Hueristic rollouts:   get_move took 7.65 seconds
+Random rollouts:      get_move took 16.59 seconds
+Hueristic rollouts:   get_move took 10.25 seconds
+Random rollouts:      get_move took 19.93 seconds
+Hueristic rollouts:   get_move took 10.81 seconds
+Random rollouts:      get_move took 21.20 seconds
+Hueristic rollouts:   get_move took 11.75 seconds
+Random rollouts:      get_move took 27.52 seconds
+Hueristic rollouts:   get_move took 9.41 seconds
+Random rollouts:      get_move took 22.91 seconds
+Hueristic rollouts:   get_move took 10.79 seconds
+Random rollouts:      get_move took 28.45 seconds
+Hueristic rollouts:   get_move took 10.07 seconds
+Random rollouts:      get_move took 26.13 seconds
+Hueristic rollouts:   get_move took 11.82 seconds
+Random rollouts:      get_move took 24.19 seconds
+Hueristic rollouts:   get_move took 11.24 seconds
+Random rollouts:      get_move took 26.57 seconds
+Hueristic rollouts:   get_move took 11.96 seconds
+Random rollouts:      get_move took 31.33 seconds
+...
+Random rollouts:      get_move took 30.09 seconds
+Hueristic rollouts:   get_move took 10.07 seconds
+Random rollouts:      get_move took 38.76 seconds
+Hueristic rollouts:   get_move took 9.42 seconds
+Random rollouts:      get_move took 33.74 seconds
+Hueristic rollouts:   get_move took 8.88 seconds
+Random rollouts:      get_move took 33.10 seconds
+```
+As you can see, heuristic rollouts were about 3 times faster than random rollouts, especially in midgame/endgame. So at least we accomplished something!
+
+
+
 ## Credit where credit is due
 Images for chessboard and pieces from Wikimedia, licensed under Creative Commons 3:
 Chess pieces: en:User:Cburnett [CC BY-SA 3.0 (http://creativecommons.org/licenses/by-sa/3.0/)]
