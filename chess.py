@@ -61,8 +61,6 @@ def draw_board(chessboard, surface):
             piece = board.piece_at_square(chessboard, row, col)
             if not piece:
                 continue
-            # XXX XXX XXX XXX X X X X oh god
-            # TODO what sick man sends babies to fight
             square_size = int(SQUARE_SIZE*BOARD_SCALE)
             board_margin = int(BOARD_MARGIN*BOARD_SCALE)
             piece_img = pygame.transform.scale(PIECE_IMGS[piece], (square_size,)*2)
@@ -189,8 +187,6 @@ def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--alternate-sides', action="store_true", default=False,
                         help='alternate sides (color) every other game')
-    parser.add_argument('--cuda', action='store_true', default=False,
-                        help='whether or not to use gpu')
     parser.add_argument('--display', action="store_true", default=False,
                         help='whether AI games display with the board')
     parser.add_argument('--heuristic-rollouts', type=bool, nargs='+', default=[False],
@@ -279,8 +275,6 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
     BOARD_SCALE = args.scale
-    if args.cuda and torch.cuda.is_available():
-        DEVICE = torch.device('cuda')
 
     if args.display or args.player1=="human" or args.player2=="human":
         board_image = pygame.image.load("images/chessboard3.png")
