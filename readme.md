@@ -1,6 +1,6 @@
 ## Chess
 [GITHUB LINK](https://github.com/willschwarzer/Chess/)
-Chess with AI in Python. By Will Schwarzer and Blake Johnson. Originally intended for comparing alpha-beta search with MCTS, but has human support for just playing chess.
+Chess with AI in Python. By Will Schwarzer and Blake Johnson. Originally intended for comparing alpha-beta search with MCTS, but has human support for just playing chess. Includes the extremely fun "horde" variant.
 
 ### Dependencies
 PyGame and SciPy
