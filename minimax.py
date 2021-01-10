@@ -44,7 +44,7 @@ class Minimax(agent.Agent):
                 _, move_value = self.alpha_beta(new_board, pos_counts, depth+1, alpha, beta, -1)
                 pos_counts[new_board] -= 1
                 # Add noise to make the agent more interesting
-                noise = np.random.normal(scale=0.05)
+                noise = np.random.normal(scale=0.01)
                 move_value += noise
                 if move_value > best_move[1]:
                     best_move = (move, move_value)
@@ -59,7 +59,7 @@ class Minimax(agent.Agent):
                 pos_counts[new_board] += 1
                 _, move_value = self.alpha_beta(new_board, pos_counts, depth+1, alpha, beta, 1)
                 move_value *= 0.9
-                noise = np.random.normal(scale=0.05)
+                noise = np.random.normal(scale=0.01)
                 move_value += noise
                 pos_counts[new_board] -= 1
                 if move_value < best_move[1]:

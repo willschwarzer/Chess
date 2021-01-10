@@ -14,10 +14,10 @@ MOBILITY_SCALARS = np.array([
     -1,
     0.3,
     -0.3,
-    0.3,
-    -0.3,
-    -10,
-    10
+    0.2,
+    -0.2,
+    0,
+    0
 ])/10
 
 MATERIAL = np.array([
@@ -47,20 +47,21 @@ def evaluate(chessboard):
     white_square_vals, black_square_vals = np.zeros([8, 8]), np.zeros([8, 8])
     # Place value density spikes on the king's position and center squares
     # (will be flattened later using gaussian filter)
-    white_square_vals[king_locs[1][0]][king_locs[1][1]] += 100
-    white_square_vals[3][3] += 10
-    white_square_vals[3][4] += 10
+    white_square_vals[king_locs[1][0]][king_locs[1][1]] = 100
+    white_square_vals[3][3] = 30
+    white_square_vals[3][4] = 30
     # SD (second argument) affects how concentrated square valuation should be
-    white_square_vals = gaussian_filter(white_square_vals, 1)
+    white_square_vals = gaussian_filter(white_square_vals, 0.7)
     if king_locs[0] is not None:
         # Standard valuation
-        black_square_vals[king_locs[0][0]][king_locs[0][1]] -= 100
-        black_square_vals[4][3] -= 10
-        black_square_vals[4][4] -= 10
+        black_square_vals[king_locs[0][0]][king_locs[0][1]] = 100
+        black_square_vals[4][3] = 30
+        black_square_vals[4][4] = 30
     else:
         # Horde valuation (value getting to the back rank)
         black_square_vals[7] -= 100
-    black_square_vals = gaussian_filter(black_square_vals, 1)
+    black_square_vals = gaussian_filter(black_square_vals, 0.7)
+    # print(black_square_vals)
     # Tally up material and mobility valuations
     for row in range(8):
         for col in range(8):
@@ -70,16 +71,14 @@ def evaluate(chessboard):
                 if piece == 11:
                     # King safety
                     if row == 7:
+                        piece_total += 1
                         if col == 1 or col == 6:
                             piece_total += 1
-                    else:
-                        piece_total -= 1
                 elif piece == 12:
                     if row == 0:
+                        piece_total -= 1
                         if col == 1 or col == 6:
                             piece_total -= 1
-                    else: 
-                        piece_total += 1
                 else:
                     # Mobility for other pieces
                     side = board.get_side(piece)
@@ -91,21 +90,22 @@ def evaluate(chessboard):
                         elif side == -1:
                             piece_total += black_square_vals[move]
                     # Square root to encourage developing all pieces
-                    piece_total = (piece_total**(2))**(1/4)
                     piece_total *= MOBILITY_SCALARS[piece]
+                    piece_total = (piece_total**(1))#**(1/4)
                 piece_total += MATERIAL[piece]
+                # print(side, row, col, piece, piece_total)
                 total += piece_total
     return total
 
 
-def order_moves_naive(self, chessboard, side):
+def order_moves_naive(chessboard, side):
     '''Given a board and a side, orders the set of all possible moves 
     based solely on the heuristic evaluation of the resulting board. 
     Intended to optimize alpha-beta. Note that this does not consider 
     game ending moves like checkmate (that would require a call 
     to get_result()).'''
     moves = board.get_all_moves(chessboard, side)
-    moves_and_values = [(move, heuristic.evaluate(board.make_move(chessboard, *move))) for move in moves]
+    moves_and_values = [(move, evaluate(board.make_move(chessboard, *move))) for move in moves]
     # If minimax is playing White, do descendimg sort, otherwise normal
     moves_and_values.sort(reverse=(side==1), key=lambda x: x[1])
     # Return just the moves
