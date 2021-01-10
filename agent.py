@@ -1,5 +1,5 @@
 '''
-file for inheriting minimax and NN. Used to make sure 
+file for inheriting minimax and MCTS. Used to make sure 
 get_move exists and is overruled by the child class.
 
 if this were java, this would be necessary for strong typing too.

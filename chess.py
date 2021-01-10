@@ -1,6 +1,6 @@
 '''
 Authors: Blake Johnson and Will Schwarzer
-Date: November 10, 2019
+Date: November 10, 2019 (edited by Will Schwarzer afterwards)
 Plays chess with humans or AIs, using pygame for input and display.
 This file mostly handles IO for both display and playing the game
 '''
@@ -12,13 +12,13 @@ import time
 
 import sys
 
-
 import agent
 import board
 import heuristic
 from mcts import MCTS
 from minimax import Minimax
 
+# 0 represents empty squares
 PIECE_IMGS = [
     None,
     pygame.image.load("images/whitepawn2.png"),
@@ -38,11 +38,73 @@ PIECE_IMGS = [
 BOARD_IMG = pygame.image.load("images/chessboard3.png")
 HIGHLIGHT_IMG = pygame.image.load("images/highlight.png")
 DARK_HIGHLIGHT_IMG = pygame.image.load("images/highlight2.png")
-BOARD_SIZE = 598
-BOARD_MARGIN = 18 # was 15
-SQUARE_SIZE = (BOARD_SIZE-2*BOARD_MARGIN)/8.0
+# Values chosen to ensure squares divide into board evenly enough
+BOARD_SIZE = 614
+BOARD_MARGIN = 19
+SQUARE_SIZE = 72
+# Used for highlighting
 last_move = None
 # Board scale declared in __main__
+
+def parse_args():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--alternate-sides', action="store_true", default=False,
+                        help='alternate sides (color) every other game')
+    parser.add_argument('--display', action="store_true", default=False,
+                        help='whether AI games display with the board')
+    parser.add_argument('--heuristic-simulation', type=str, nargs='+', default=[False],
+                        help='whether or not to use heuristic to guide random rollouts')
+    parser.add_argument('--heuristic-selection', type=str, nargs='+', default=[False],
+                        help='whether or not to use heuristic to guide node selection in rollouts')
+    parser.add_argument('--input-file', type=str, nargs='+', default=[],
+                        help='which (pickle) file to read in the AI from')
+    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[20],
+                        help='MCTS max AI search depth (0 for unlimited)')
+    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[50],
+                        help='number of MCTS rollouts')
+    parser.add_argument('--minimax-depth', type=int, nargs='+', default=[2],
+                        help='minimax max AI search depth')
+    parser.add_argument('--num-games', type=int, default=1,
+                        help='how many games to play')
+    parser.add_argument('--output-file', type=str, nargs='+', default=[],
+                        help='which (pickle) file to write the AI to')
+    parser.add_argument('--player1', type=str, default='human',
+                        help='who player 1 is (white)')
+    parser.add_argument('--player2', type=str, default='minimax',
+                        help='who player 2 is (black)')
+    parser.add_argument('--scale', type=float, default=1,
+                        help='scaling factor for the board')
+    parser.add_argument('--ucb-const', type=float, nargs='+', default=[0.5],
+                        help='UCB constant for MCTS')
+    parser.add_argument('--variant', type=str, default='normal',
+                        help='type of chess to play')
+    parser.add_argument('--wait-between', action='store_true', default=False,
+                        help='whether or not to wait for a click between games')
+    args = parser.parse_args()
+    # Convert strings to bools for bool args
+    # Done this way rather than using store_true in order to duplicate (below)
+    args.heuristic_simulation = [False if string == "False" else True for string in args.heuristic_simulation]
+    args.heuristic_selection = [False if string == "False" else True for string in args.heuristic_selection]
+    # Duplicate individual args
+    if len(args.minimax_depth) == 1:
+        args.minimax_depth = args.minimax_depth * 2
+    if len(args.input_file) == 1:
+        args.input_file = args.input_file * 2
+    if len(args.heuristic_simulation) == 1:
+        args.heuristic_simulation = args.heuristic_simulation * 2
+    if len(args.heuristic_selection) == 1:
+        args.heuristic_selection = args.heuristic_selection * 2
+    if len(args.mcts_rollouts) == 1:
+        args.mcts_rollouts = args.mcts_rollouts * 2
+    if len(args.mcts_depth) == 1:
+        args.mcts_depth = args.mcts_depth * 2
+    if len(args.ucb_const) == 1:
+        args.ucb_const = args.ucb_const * 2
+    # Ensure that the game waits at end of game if humans are playing
+    if args.player1 == 'human' or args.player2 =='human':
+        args.wait_between = True
+
+    return args
 
 def draw_board(chessboard, surface):
     ''' Draws all pieces on a given board'''
@@ -70,54 +132,21 @@ def draw_board(chessboard, surface):
             surface.blit(piece_img, rect)
 
 def highlight_square(surface, row, col, dark=False):
-    square_size = (SQUARE_SIZE*BOARD_SCALE)
-    board_margin = (BOARD_MARGIN*BOARD_SCALE)
+    ''' Highlights player-selected squares (dark = False) or squares 
+    corresponding to the last move (dark = True)'''
+    square_size = int(SQUARE_SIZE*BOARD_SCALE)
+    board_margin = int(BOARD_MARGIN*BOARD_SCALE)
     highlight_image = pygame.transform.scale(HIGHLIGHT_IMG, (int(square_size),)*2)
     if dark:
         highlight_image = pygame.transform.scale(DARK_HIGHLIGHT_IMG, (int(square_size),)*2)
-    x0 = int(board_margin + col*square_size) + int(2*col/8 + 1)
-    y0 = int(board_margin + row*square_size) + int(2*col/8 + 1)
+    # Add a corrective factor here since the square/board ratio is slightly off
+    x0 = int(board_margin + col*square_size) + int(3*col/8 + 1)
+    y0 = int(board_margin + row*square_size) + int(3*row/8 + 1)
     rect = pygame.Rect(x0, y0, square_size, square_size)
     surface.blit(highlight_image, rect)
 
-class Human(agent.Agent):
-    def __init__(self,side, surface):
-        self.side = side
-        self.surface = surface
-
-    def get_move(self,chessboard, pos_counts):
-        first_click = True
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    sys.exit()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # click_x = margin_size + row*square_size
-                    # row*square_size = click_x - margin_size
-                    # row = (click_x - margin_size)/square_size
-                    row = int((event.pos[1]-board_margin)/square_size)
-                    col = int((event.pos[0]-board_margin)/square_size)
-                    piece = board.piece_at_square(chessboard, row, col)
-                    if first_click:
-                        if piece != None and board.get_side(piece) == self.side:
-                            moves = board.get_moves(chessboard, row, col, False, True)
-                            #highlight available moves
-                            for move in moves:
-                                highlight_square(surface, *move)
-                                pygame.display.flip()
-                            first_click_square = (row, col)
-                            first_click = False
-                            continue #restart the event code, this time getting the move-determining (or selection-cancelling) click
-
-                    if not first_click:
-                        draw_board(chessboard, surface)
-                        pygame.display.flip()
-                        if (row, col) in moves:
-                            return (first_click_square, (row, col))
-                        else:
-                            first_click = True
-
 def wait_for_click():
+    ''' Helper function for waiting at the end of games.'''
     click = False
     while True:
         for event in pygame.event.get():
@@ -128,16 +157,68 @@ def wait_for_click():
             elif event.type == pygame.MOUSEBUTTONUP and click:
                 return
 
+class Human(agent.Agent):
+    ''' Class for human agents. Defined here to make use of graphics-related
+    globals (specifically for highlighting squares).'''
+    def __init__(self,side, surface):
+        ''' side: integer, 1 or -1 for White or Black
+            surface: PyGame surface, for highlighting squares'''
+        self.side = side
+        self.surface = surface
+
+    def get_move(self,chessboard, pos_counts):
+        ''' Return the given human's chosen move.
+            chessboard: integer corresponding to the current board
+            pos_counts: list of chessboards for determining threefold 
+        repetition'''
+        # Variable for keeping track of whether the human has selected a piece
+        first_click = True
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    row = int((event.pos[1]-board_margin)/square_size)
+                    col = int((event.pos[0]-board_margin)/square_size)
+                    piece = board.piece_at_square(chessboard, row, col)
+                    if first_click:
+                        if piece != None and board.get_side(piece) == self.side:
+                            moves = board.get_moves(chessboard, row, col, False)
+                            # Highlight available moves
+                            for move in moves:
+                                highlight_square(surface, *move)
+                                pygame.display.flip()
+                            first_click_square = (row, col)
+                            first_click = False
+                            # Restart the event code, this time getting the 
+                            # Move-determining (or selection-cancelling) click
+                            continue 
+
+                    if not first_click:
+                        # Attempting to make a move
+                        # Clear highlights
+                        draw_board(chessboard, surface)
+                        pygame.display.flip()
+                        if (row, col) in moves:
+                            return (first_click_square, (row, col))
+                        else:
+                            first_click = True
+
 def play_game(agent1, agent2, surface, variant, wait_between):
-    ''' Play chess '''
-    global last_move
+    ''' Plays one single chess game.
+        agent1, agent2: Agents
+        surface: PyGame surface
+        variant: string indicating the variant (currently either 'normal',
+    'horde', or a debug variant
+        wait_between: bool indicating whether to wait for click at game end'''
+    global last_move # Used for highlighting
     chessboard = board.set_board(variant=variant)
-    result = None
     pos_counts = defaultdict(int)
     if surface:
         surface.fill([0, 0, 0])
         draw_board(chessboard, surface)
         pygame.display.flip()
+    # Start a new threefold repetition counter
     pos_counts[chessboard] += 1
     while True:
         move = agent1.get_move(chessboard, pos_counts)
@@ -151,8 +232,9 @@ def play_game(agent1, agent2, surface, variant, wait_between):
             surface.fill([0, 0, 0])
             draw_board(chessboard, surface)
             pygame.display.flip()
-        # checkmate checks, etc
         pos_counts[chessboard] += 1
+        # See if White's move caused either checkmate or a draw
+        # Note that this function also prints the result
         result = board.get_result(chessboard, pos_counts, variant, 1)
         if result is not None:
             if wait_between:
@@ -162,6 +244,8 @@ def play_game(agent1, agent2, surface, variant, wait_between):
 
         move = agent2.get_move(chessboard, pos_counts)
         last_move = move
+        if move is None:
+            breakpoint()
         chessboard = board.make_move(chessboard, *move)
         if type(agent1) == MCTS:
             agent1.record_move(move)
@@ -183,66 +267,18 @@ def play_game(agent1, agent2, surface, variant, wait_between):
                 if event.type == pygame.QUIT:
                     sys.exit()
 
-def parse_args():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--alternate-sides', action="store_true", default=False,
-                        help='alternate sides (color) every other game')
-    parser.add_argument('--display', action="store_true", default=False,
-                        help='whether AI games display with the board')
-    parser.add_argument('--heuristic-rollouts', type=bool, nargs='+', default=[False],
-                        help='whether or not to use heuristic to guide rollouts')
-    parser.add_argument('--input-file', type=str, nargs='+', default=[],
-                        help='which (pickle) file to read in the AI from')
-    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[20],
-                        help='MCTS max AI search depth (0 for unlimited)')
-    parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[50],
-                        help='number of MCTS rollouts')
-    parser.add_argument('--minimax-depth', type=int, nargs='+', default=[2],
-                        help='minimax max AI search depth')
-    parser.add_argument('--num-games', type=int, default=1,
-                        help='how many games to play')
-    parser.add_argument('--output-file', type=str, nargs='+', default=[],
-                        help='which (pickle) file to write the AI to')
-    parser.add_argument('--player1', type=str, default='human',
-                        help='who player 1 is (white)')
-    parser.add_argument('--player2', type=str, default='minimax',
-                        help='who player 2 is (black)')
-    parser.add_argument('--scale', type=float, default=1,
-                        help='scaling factor for the board')
-    parser.add_argument('--ucb-const', type=float, nargs='+', default=[0.5],
-                        help='UCB constant for MCTS')
-    parser.add_argument('--variant', type=str, default='normal',
-                        help='type of chess to play')
-    parser.add_argument('--wait-between', action='store_true', default=False,
-                        help='whether or not to wait for a click between games')
-    # parser.add_argument('')
-    args = parser.parse_args()
-    if len(args.minimax_depth) == 1:
-        args.minimax_depth = args.minimax_depth * 2
-    if args.player1 == 'human' or args.player2 =='human':
-        args.wait_between = True
-    if len(args.input_file) == 1:
-        args.input_file = args.input_file * 2
-    if len(args.heuristic_rollouts) == 1:
-        args.heuristic_rollouts = args.heuristic_rollouts * 2
-    if len(args.mcts_rollouts) == 1:
-        args.mcts_rollouts = args.mcts_rollouts * 2
-    if len(args.mcts_depth) == 1:
-        args.mcts_depth = args.mcts_depth * 2
-    if len(args.ucb_const) == 1:
-        args.ucb_const = args.ucb_const * 2
-
-    return args
 
 def main(args):
+    ''' Runs one or more chess games using some combination of agents.'''
     if args.player1 == "human":
         agent1 = Human(1,surface)
     elif args.player1 == "minimax":
         agent1 = Minimax(1, args.minimax_depth[0], args.variant)
     elif args.player1 == "mcts":
         agent1 = MCTS(1, args.mcts_depth[0], args.mcts_rollouts[0],\
-         args.variant, args.heuristic_rollouts[0], \
-         args.input_file[0] if args.input_file else None, args.output_file[0] if args.output_file else None, args.ucb_const[0])
+         args.variant, args.heuristic_simulation[0], args.heuristic_selection[0],\
+         args.input_file[0] if args.input_file else None,\
+         args.output_file[0] if args.output_file else None, args.ucb_const[0])
 
     if args.player2 == "human":
         agent2 = Human(-1, surface)
@@ -250,21 +286,24 @@ def main(args):
         agent2 = Minimax(-1, args.minimax_depth[1], args.variant)
     elif args.player2 == "mcts":
         agent2 = MCTS(1, args.mcts_depth[1], args.mcts_rollouts[1],\
-         args.variant, args.heuristic_rollouts[1], args.input_file[1] if len(args.input_file) == 2 else None,\
-          args.output_file[1] if len(args.output_file) == 2 else None, args.ucb_const[1])
+         args.variant, args.heuristic_simulation[1], args.heuristic_selection[0],\
+         args.input_file[1] if len(args.input_file) == 2 else None,\
+         args.output_file[1] if len(args.output_file) == 2 else None, args.ucb_const[1])
 
     for i in range(args.num_games):
         play_game(agent1, agent2, surface, args.variant, args.wait_between)
+        # Reset both MCTS agents to White, since they need to record moves
         if type(agent1) == MCTS:
             agent1.reset(1)
         if type(agent2) == MCTS:
-            agent2.reset(-1)
+            agent2.reset(1)
         if args.alternate_sides:
             agent1.switch_sides()
             agent2.switch_sides()
             temp = agent1
             agent1 = agent2
             agent2 = temp
+        # Store the roots of the MCTS trees if output location was specified
         if type(agent1) == MCTS:
             agent1.store_root()
         if type(agent2) == MCTS:

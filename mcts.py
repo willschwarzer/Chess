@@ -8,83 +8,105 @@ from collections import defaultdict
 import agent
 import board
 import heuristic
+
 class MCTS(agent.Agent):
-    def __init__(self, side, max_depth, n_rollouts, variant, use_heuristic, input_path, output_path, ucb_const):
+    ''' Chess agent using either canonical or modified Monte Carlo Tree 
+    Search, in particular including the option to stop rollouts early and 
+    evaluate them heuristically, select already-seen paths heuristically, or
+    conduct simulation rollouts heuristically. Automatically reuses tree 
+    within sessions, and can save between sessions. Note that depth only 
+    refers to simulation depth, not rollout depth.'''
+    def __init__(self, side, max_depth, n_rollouts, variant, heuristic_simulation, heuristic_selection, input_path, output_path, ucb_const):
         self.side = side
         self.max_depth = max_depth
         self.n_rollouts = n_rollouts
         self.variant = variant
-        self.use_heuristic = use_heuristic
+        self.heuristic_simulation = heuristic_simulation
+        self.heuristic_selection = heuristic_selection
         self.ucb_const = ucb_const
         self.input_path = input_path
         self.output_path = output_path
-        self.random_moves_list = []
         if input_path:
             self.load_root()
         else:
             self.root = Node(board.set_board(variant), None, self.ucb_const)
-            
         self.cur = self.root
 
     def load_root(self):
+        ''' Loads saved root from pickle file specified in input_path.'''
         file = open(os.path.join('saves', self.input_path), 'rb')
         self.root = pickle.load(file)
     
     def store_root(self):
+        ''' Stores root in pickle file specified in output_path.'''
         if self.output_path:
             file = open(os.path.join('saves', self.output_path), 'wb')
             pickle.dump(self.root, file)
 
     def reset(self, side):
+        ''' Reset current position to root to prepare for a new game.'''
         self.cur = self.root
         self.side = side
 
     def get_move(self, chessboard, pos_counts):
-        # then = time()
+        ''' Return a move based on tree developed at least in part from 
+        rollouts from current position.'''
         result = self.do_rollouts(pos_counts)
-        # now = time()-then
-        # print("get_move took " + str(now) + " seconds")
         return result
 
     def record_move(self, move):
+        ''' Update current position based on self's or opponent's move.'''
         if move not in self.cur.children.keys():
             self.cur.add_move(move)
         self.cur = self.cur.children[move]
         self.side *= -1
 
-
     def do_rollouts(self, pos_counts):
+        ''' Conduct MCTS rollouts, of depth and number specified in init, 
+        and return the move resulting in highest win percentage or best
+        average heuristic evaluation during both these rollouts and any
+        previous ones. pos_counts is a position counter used to determine
+        threefold repetition.'''
         for i in range(self.n_rollouts):
             side = self.side
             cur = self.cur
             cur.visits += 1
             pos_counts[cur.chessboard] += 1
-            while len(cur.children) == len(board.get_all_moves(cur.chessboard, self.side))\
-             and board.get_result(cur.chessboard, pos_counts, self.variant, self.side, False) is None\
-             and board.get_result(cur.chessboard, pos_counts, self.variant, -self.side, False) is None:
-                if len(cur.children) == 0:
-                    breakpoint()
+            # Selection phase
+            # Using -side here because we're checking whether the *last*
+            # move, i.e. by the opposite side, ended the game
+            while board.get_result(cur.chessboard, pos_counts, self.variant,\
+                                   -side, False) is None:
+                if len(cur.children) != len(board.get_all_moves(cur.chessboard, side)):
+                     break
+                # Note that values() here is dict values (i.e. nodes)
                 best_child = list(cur.children.values())[0]
                 for child in list(cur.children.values())[1:]:
-                    if side*(child.UCB_weight(-side)-best_child.UCB_weight(-side)) > 0:
+                    if child.UCB_weight(side, self.heuristic_selection) >\
+                       best_child.UCB_weight(side, self.heuristic_selection):
                         best_child = child
                 cur = best_child
                 side *= -1
                 cur.visits += 1
                 pos_counts[cur.chessboard] += 1
-            if board.get_result(cur.chessboard, pos_counts, self.variant, side, False) is not None \
-            and board.get_result(cur.chessboard, pos_counts, self.variant, -side, False) is not None:
+            else:
+                # If we found a terminal node, just ignore this rollout
                 continue
+            # Expansion phase
+            # cur is a non-terminal node with incompletely explored children
             moves = board.get_all_moves(cur.chessboard, side)
             random.shuffle(moves)
+            # Iterate through possible moves until we find one that isn't
+            # already a child of cur
             for move in moves:
                 if cur.add_move(move):
                     break
-            if type(cur.children) == tuple:
-                breakpoint()
             expanded = cur.children[move]
             expanded.visits += 1
+            # Simulation phase
+            # -side since side corresponds to cur, not expanded
             outcome = self.random_to_end(expanded.chessboard, pos_counts, -side, 0)
+            # Backprop phase
             expanded.update_value(outcome, self.cur, pos_counts)
             pos_counts[cur.chessboard] -= 1
         
@@ -94,70 +116,47 @@ class MCTS(agent.Agent):
             best_child = self.cur.children[best_move]
             if self.side*(child.get_value()-best_child.get_value()) > 0:
                 best_move = move
-            
+
         return best_move
 
     def random_to_end(self, chessboard, pos_counts, side, depth):
-        ''' side: which player's move it is in position chessboard''' 
-        self.random_moves_list = [] if depth == 0 else self.random_moves_list
+        ''' Simulates the rest of the game from a certain state, down to a
+        given depth (or until game end if depth=0).''' 
         result = board.get_result(chessboard, pos_counts, self.variant, -side, False)
         if result is not None:
-            # Return a large number since we might be stopping early and doing
-            # a heuristic evaluation, which might be bigger than 1 or -1
+            # Convert to centipawn space (simulated results are in centipawn
+            # space thus x100000 here, node values are in win prob. space)
             return result*100000
         elif self.max_depth != 0 and depth == self.max_depth:
             return heuristic.evaluate(chessboard)
-        elif self.use_heuristic:
-            move = self.order_moves_naive(chessboard, side)[0] 
+        elif self.heuristic_simulation:
+            move = heuristic.order_moves_naive(chessboard, side)[0] 
         else:
             moves = board.get_all_moves(chessboard, side)
             random.shuffle(moves)
             move = moves[0]
-        # if board.piece_at_square(chessboard, *move[0]) == 11:
-            # board.print_board(chessboard)
-            # print(board.get_castling_rights(chessboard, 1))
-            # print()
         new_board = board.make_move(chessboard, *move)
-        self.random_moves_list.append(move)
-        piece_counts = defaultdict(int)
-        for row in range(8):
-            for col in range(8):
-                piece_counts[board.piece_at_square(new_board, row, col)] += 1
-        if piece_counts[11] != 1 or piece_counts[12] != 1:
-            breakpoint()
         pos_counts[new_board] += 1
         outcome = self.random_to_end(new_board, pos_counts, -side, depth+1)
         pos_counts[new_board] -= 1
         return outcome
 
-    def order_moves_naive(self, chessboard, side):
-        '''Given a board and a side, naively orders the set of all possible moves based solely on whether or not they involve the capture of a piece, and if so, how much the piece is worth.'''
-        moves = board.get_all_moves(chessboard, side)
-        moves_and_values = [(move, heuristic.evaluate(board.make_move(chessboard, move[0], move[1]))) for move in moves]
-        moves_and_values.sort(reverse=(side==1), key=lambda x: x[1])
-        return [tup[0] for tup in moves_and_values]
-
 
 class Node(object):
-    """Node used in MCTS"""
+    ''' Game state node used in MCTS.'''
     
     def __init__(self, chessboard, parent_node, ucb_const):
-        """Constructor for a new node representing game state
-        state. parent_node is the Node that is the parent of this
-        one in the MCTS tree. """
         self.chessboard = chessboard
         self.parent = parent_node
-        self.children = {} # maps moves (keys) to Nodes (values); if you use it differently, you must also change addMove
+        self.children = {}
         self.ucb_const = ucb_const
         self.visits = 0
         self.value = float("nan")
-        # Note: you may add additional fields if needed
         
     def add_move(self, move):
-        """
-        Adds a new node for the child resulting from move if one doesn't already exist.
-        Returns true if a new node was added, false otherwise.
-        """
+        ''' Adds a new node for the child state resulting from move if one 
+        doesn't already exist. Returns true if a new node was added, 
+        false otherwise.'''
         if move not in self.children:
             chessboard = board.make_move(self.chessboard, move[0], move[1])
             self.children[move] = Node(chessboard, self, self.ucb_const)
@@ -165,31 +164,44 @@ class Node(object):
         return False
     
     def get_value(self):
-        """
-        Gets the value estimate for the current node. Value estimates should correspond
-        to the win percentage for the player at this node (accounting for draws as in 
-        the project description).
-        """
+        ''' Gets the value estimate for the current state, corresponding to 
+        the win probability of each side in that state (-1 to 1 for a certain
+        Black win to a certain White win).'''
         return self.value
 
     def update_value(self, outcome, cur, pos_counts):
-        """Updates the value estimate for the node's state.
-        outcome: +100000 for a first player win, -100000 for a second player win, 0 for a draw, or some heuristic evaluation in between"""
-        # NOTE: which outcome is preferred depends on self.state.turn()
+        ''' Updates the value estimate for this node given a simulated 
+        outcome, and averages its new value into its parents' values. 
+        Since outcome is in centipawn space, its values are +100000 for a 
+        first player win, -100000 for a second player win, 0 for a draw, or 
+        some heuristic evaluation in between.'''
+        # Reset value (will set it with either outcome or child average)
         self.value = 0
+        # If a leaf node, set value to just be outcome as a win prob.
         if len(self.children) == 0:
-            self.value = outcome
+            # Convert heuristic into winning prob. using logistic model
+            if outcome in (100000, -100000, 0):
+                self.value = outcome/100000
+            else:
+                # Based on model described in https://www.chessprogramming.org/Pawn_Advantage,_Win_Percentage,_and_Elo
+                self.value = 2/(1+10**(-outcome/4)) - 1
+        # If not a leaf node, set new value to be average of children
         for child in self.children.values():
-            self.value += child.value * child.visits
+            self.value = (self.value*self.visits + child.value*child.visits)/(self.visits + child.visits)
+        # Backprop to parents
         if self.parent and self is not cur:
             pos_counts[self.chessboard] -= 1
             self.parent.update_value(0, cur, pos_counts)
 
-    def UCB_weight(self, side):
-        """Weight from the UCB formula used by parent to select a child.
-        This node will be selected by parent with probability proportional
-        to its weight."""
-        if self.parent is None:
-            raise Exception("no")
-        explore_val = self.ucb_const * math.sqrt(math.log(self.parent.visits)/self.visits) * -side
-        return self.value + explore_val
+    def UCB_weight(self, side, heuristic_selection):
+        ''' Weight from the UCB formula used by parent to select a child.
+        If heuristic_selection is True, uses heuristic value of current 
+        state as a biasing factor in the return value. (Note that this is
+        different from the current MCTS value of the node, which is always
+        used as an additive component of the UCB weight.)'''
+        explore_val = self.ucb_const * math.sqrt(math.log(self.parent.visits)/self.visits)
+        if heuristic_selection:
+            heuristic_val = 1/(1+10**(-side*heuristic.evaluate(self.chessboard)))
+            return self.value*side + heuristic_val*explore_val
+        else:
+            return self.value*side + explore_val
