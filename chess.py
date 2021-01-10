@@ -58,20 +58,18 @@ def parse_args():
                         help='whether or not to use heuristic to guide node selection in rollouts')
     parser.add_argument('--input-file', type=str, nargs='+', default=[],
                         help='which (pickle) file to read in the AI from')
-    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[20],
-                        help='MCTS max AI search depth (0 for unlimited)')
+    parser.add_argument('--mcts-depth', type=int, nargs='+', default=[2],
+                        help='MCTS max simulation depth (0 for unlimited)')
     parser.add_argument('--mcts-rollouts', type=int, nargs='+', default=[50],
                         help='number of MCTS rollouts')
-    parser.add_argument('--minimax-depth', type=int, nargs='+', default=[2],
+    parser.add_argument('--minimax-depth', type=int, nargs='+', default=[3],
                         help='minimax max AI search depth')
     parser.add_argument('--num-games', type=int, default=1,
                         help='how many games to play')
     parser.add_argument('--output-file', type=str, nargs='+', default=[],
                         help='which (pickle) file to write the AI to')
-    parser.add_argument('--player1', type=str, default='human',
-                        help='who player 1 is (white)')
-    parser.add_argument('--player2', type=str, default='minimax',
-                        help='who player 2 is (black)')
+    parser.add_argument('--players', type=str, nargs='+', default=['human'],
+                        help='who the players are (first is white, second is black)')
     parser.add_argument('--scale', type=float, default=1,
                         help='scaling factor for the board')
     parser.add_argument('--ucb-const', type=float, nargs='+', default=[0.5],
@@ -98,11 +96,14 @@ def parse_args():
         args.mcts_rollouts = args.mcts_rollouts * 2
     if len(args.mcts_depth) == 1:
         args.mcts_depth = args.mcts_depth * 2
+    if len(args.players) == 1:
+        args.players = args.players * 2
     if len(args.ucb_const) == 1:
         args.ucb_const = args.ucb_const * 2
+    has_humans = any([player == 'human' for player in args.players])
+    args.display = args.display or has_humans
+    args.wait_between = args.wait_between or has_humans
     # Ensure that the game waits at end of game if humans are playing
-    if args.player1 == 'human' or args.player2 =='human':
-        args.wait_between = True
 
     return args
 
@@ -270,44 +271,47 @@ def play_game(agent1, agent2, surface, variant, wait_between):
 
 def main(args):
     ''' Runs one or more chess games using some combination of agents.'''
-    if args.player1 == "human":
-        agent1 = Human(1,surface)
-    elif args.player1 == "minimax":
-        agent1 = Minimax(1, args.minimax_depth[0], args.variant)
-    elif args.player1 == "mcts":
-        agent1 = MCTS(1, args.mcts_depth[0], args.mcts_rollouts[0],\
-         args.variant, args.heuristic_simulation[0], args.heuristic_selection[0],\
-         args.input_file[0] if args.input_file else None,\
-         args.output_file[0] if args.output_file else None, args.ucb_const[0])
-
-    if args.player2 == "human":
-        agent2 = Human(-1, surface)
-    elif args.player2 == "minimax":
-        agent2 = Minimax(-1, args.minimax_depth[1], args.variant)
-    elif args.player2 == "mcts":
-        agent2 = MCTS(1, args.mcts_depth[1], args.mcts_rollouts[1],\
-         args.variant, args.heuristic_simulation[1], args.heuristic_selection[0],\
-         args.input_file[1] if len(args.input_file) == 2 else None,\
-         args.output_file[1] if len(args.output_file) == 2 else None, args.ucb_const[1])
+    agents = [None, None]
+    for player_no, player in enumerate(args.players):
+        side = 1 if player_no == 0 else -1
+        if player == "human":
+            agents[player_no] = Human(side, surface)
+        elif player == "minimax":
+            agents[player_no] = Minimax(side, 
+                                        args.minimax_depth[player_no], 
+                                        args.variant)
+        elif player == "mcts":
+            input_file = args.input_file[player_no] if args.input_file else None
+            output_file = args.output_file[player_no] if args.output_file else None
+            # MCTS always starts as White because it records moves
+            agents[player_no] = MCTS(1, 
+                                     args.mcts_depth[player_no], 
+                                     args.mcts_rollouts[player_no],
+                                     args.variant, 
+                                     args.heuristic_simulation[player_no], 
+                                     args.heuristic_selection[player_no],
+                                     input_file,
+                                     output_file,
+                                     args.ucb_const[player_no])
 
     for i in range(args.num_games):
-        play_game(agent1, agent2, surface, args.variant, args.wait_between)
+        play_game(*agents, surface, args.variant, args.wait_between)
         # Reset both MCTS agents to White, since they need to record moves
-        if type(agent1) == MCTS:
-            agent1.reset(1)
-        if type(agent2) == MCTS:
-            agent2.reset(1)
+        if type(agents[0]) == MCTS:
+            agents[0].reset(1)
+        if type(agents[1]) == MCTS:
+            agents[1].reset(1)
         if args.alternate_sides:
-            agent1.switch_sides()
-            agent2.switch_sides()
-            temp = agent1
-            agent1 = agent2
-            agent2 = temp
+            agents[0].switch_sides()
+            agents[1].switch_sides()
+            temp = agent[0]
+            agent[0] = agent[1]
+            agent[1] = temp
         # Store the roots of the MCTS trees if output location was specified
-        if type(agent1) == MCTS:
-            agent1.store_root()
-        if type(agent2) == MCTS:
-            agent2.store_root()
+        if type(agents[0]) == MCTS:
+            agents[0].store_root()
+        if type(agents[1]) == MCTS:
+            agents[1].store_root()
 
 
 
@@ -315,7 +319,7 @@ if __name__ == "__main__":
     args = parse_args()
     BOARD_SCALE = args.scale
 
-    if args.display or args.player1=="human" or args.player2=="human":
+    if args.display:
         board_image = pygame.image.load("images/chessboard3.png")
         pygame.init()
 
