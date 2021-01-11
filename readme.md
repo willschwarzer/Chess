@@ -6,9 +6,9 @@ Chess with AI in Python. By Will Schwarzer and Blake Johnson. Originally intende
 PyGame and SciPy
 
 ### Sample Usage:
-```$ python chess.py --player1 human --player2 minimax --num-games 3```
+```$ python chess.py --players human minimax --num-games 3```
 
-```$ python chess.py --player1 mcts --player2 mcts --mcts-rollouts 50 100 --heuristic-simulation True False ```
+```$ python chess.py --players mcts --mcts-rollouts 50 100 --heuristic-simulation True False ```
 
 ```$ python chess.py --variant horde```
 
