@@ -33,8 +33,8 @@ POWERS = np.array([NUM_PIECES**n for n in range(70)])
 
 # Rather than having a 50-move rule, just limit max game length
 # It's less difficult to keep track of, and in some ways may help MCTS
-# (Note that this is moves by either side being counted, i.e. 200 positions)
-MAX_MOVES = 200
+# (Note that this is moves by either side being counted, i.e. 300 positions)
+MAX_MOVES = 300
 
 def set_board(variant='normal'):
     ''' Represented digitally: each square is a place, counting horizontally

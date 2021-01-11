@@ -89,9 +89,7 @@ def evaluate(chessboard):
                             piece_total += white_square_vals[move]
                         elif side == -1:
                             piece_total += black_square_vals[move]
-                    # Square root to encourage developing all pieces
                     piece_total *= MOBILITY_SCALARS[piece]
-                    piece_total = (piece_total**(1))#**(1/4)
                 piece_total += MATERIAL[piece]
                 # print(side, row, col, piece, piece_total)
                 total += piece_total

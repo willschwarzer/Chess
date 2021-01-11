@@ -9,6 +9,7 @@ import agent
 import board
 import heuristic
 
+
 class MCTS(agent.Agent):
     ''' Chess agent using either canonical or modified Monte Carlo Tree 
     Search, in particular including the option to stop rollouts early and 
@@ -71,7 +72,6 @@ class MCTS(agent.Agent):
             side = self.side
             cur = self.cur
             cur.visits += 1
-            pos_counts[cur.chessboard] += 1
             # Selection phase
             # Using -side here because we're checking whether the *last*
             # move, i.e. by the opposite side, ended the game
@@ -88,7 +88,6 @@ class MCTS(agent.Agent):
                 cur = best_child
                 side *= -1
                 cur.visits += 1
-                pos_counts[cur.chessboard] += 1
             else:
                 # If we found a terminal node, just ignore this rollout
                 continue
@@ -105,10 +104,11 @@ class MCTS(agent.Agent):
             expanded.visits += 1
             # Simulation phase
             # -side since side corresponds to cur, not expanded
+            pos_counts[cur.chessboard] += 1
             outcome = self.random_to_end(expanded.chessboard, pos_counts, -side, 0)
+            pos_counts[cur.chessboard] -= 1
             # Backprop phase
             expanded.update_value(outcome, self.cur, pos_counts)
-            pos_counts[cur.chessboard] -= 1
         
         best_move = list(self.cur.children.keys())[0]
         for move in self.cur.children:
@@ -190,7 +190,6 @@ class Node(object):
             self.value = (self.value*self.visits + child.value*child.visits)/(self.visits + child.visits)
         # Backprop to parents
         if self.parent and self is not cur:
-            pos_counts[self.chessboard] -= 1
             self.parent.update_value(0, cur, pos_counts)
 
     def UCB_weight(self, side, heuristic_selection):

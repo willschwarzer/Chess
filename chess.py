@@ -1,6 +1,6 @@
 '''
 Authors: Blake Johnson and Will Schwarzer
-Date: November 10, 2019 (edited by Will Schwarzer afterwards)
+Date of creation: November 10, 2019 (edited by Will Schwarzer afterwards)
 Plays chess with humans or AIs, using pygame for input and display.
 This file mostly handles IO for both display and playing the game
 '''
@@ -52,9 +52,9 @@ def parse_args():
                         help='alternate sides (color) every other game')
     parser.add_argument('--display', action="store_true", default=False,
                         help='whether AI games display with the board')
-    parser.add_argument('--heuristic-simulation', type=str, nargs='+', default=[False],
+    parser.add_argument('--heuristic-simulation', type=str, nargs='+', default=['False'],
                         help='whether or not to use heuristic to guide random rollouts')
-    parser.add_argument('--heuristic-selection', type=str, nargs='+', default=[False],
+    parser.add_argument('--heuristic-selection', type=str, nargs='+', default=['False'],
                         help='whether or not to use heuristic to guide node selection in rollouts')
     parser.add_argument('--input-file', type=str, nargs='+', default=[],
                         help='which (pickle) file to read in the AI from')
